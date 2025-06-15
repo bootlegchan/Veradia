@@ -101,6 +101,7 @@ func _process_task(task_data: Dictionary):
 		plan_generated.emit(npc_instance_id, selected_goal_id, plan, blackboard_snapshot)
 
 ## Selects the highest utility GOAP goal for an NPC based on its current state.
+## A goal is only considered if its preconditions are NOT already met in the current state.
 ##
 ## Parameters:
 ## - npc_blackboard_snapshot: A snapshot of the NPC's current internal state.
@@ -116,10 +117,10 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 	for goal_id_str in all_goal_definitions:
 		var goal_def: GOAPGoalDefinition = all_goal_definitions[goal_id_str]
 
-		# If the goal's preconditions are already met in the current blackboard state,
-		# then this goal is already achieved and should not be pursued.
+		# CRITICAL: If the goal's preconditions are already met, this goal is satisfied
+		# and should NOT be pursued. Skip it entirely for selection.
 		if _goap_planner._check_preconditions_met(npc_blackboard_snapshot, goal_def.preconditions):
-			continue # Skip goals that are already satisfied
+			continue # Skip this goal, it's already achieved
 
 		var current_utility: float = _calculate_goal_utility(goal_def, npc_blackboard_snapshot)
 
