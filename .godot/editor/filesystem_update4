@@ -26,3 +26,4 @@ res://definitions/ai/actions/action_pickup_item.json
 res://features/npc_module/components/daily_schedule.gd
 res://scenes/main.gd
 res://features/npc_module/components/npc_blackboard.gd
+res://systems/perception_manager.gd

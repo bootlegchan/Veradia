@@ -1,76 +1,72 @@
-# PerceptionManager.gd
-# Simulates NPCs' sensory input.
-class_name PerceptionManager
-extends Node
+## perception_manager.gd
+## Simulates NPCs' sensory input, scanning the world and feeding facts about
+## the environment into their respective NPCMemory instances.
+class_name PerceptionManager extends Node
 
-var WorldSvc: Node
-var AISvc: Node
-var _perception_timer: Timer
-const PERCEPTION_INTERVAL_SECONDS: float = 2.0
+@onready var _world_manager: WorldManager = get_node("/root/WorldSvc")
+@onready var _ai_manager: AIManager = get_node("/root/AISvc")
+@onready var _entity_manager: EntityManager = get_node("/root/EntitySvc")
 
-func _ready() -> void:
-	call_deferred("_initialize")
+# Preload the KnownFact script to instantiate it.
+const KnownFactRef = preload("res://features/npc_module/components/known_fact.gd")
 
-func _initialize() -> void:
-	WorldSvc = get_node("/root/WorldSvc")
-	AISvc = get_node("/root/AISvc")
-	if not WorldSvc or not AISvc:
-		push_error("PerceptionManager: Required services (WorldSvc, AISvc) not found.")
-		set_process(false)
-		return
-	_perception_timer = Timer.new()
-	add_child(_perception_timer)
-	_perception_timer.wait_time = PERCEPTION_INTERVAL_SECONDS
-	_perception_timer.timeout.connect(_on_perception_timer_timeout)
-	_perception_timer.start()
+@export var perception_tick_interval: float = 2.0 # How often (in seconds) to run the perception scan
+var _tick_accumulator: float = 0.0
+
+## Called when the node enters the scene tree for the first time.
+func _ready():
 	print("PerceptionManager initialized.")
 
-func _on_perception_timer_timeout() -> void:
-	if not AISvc.has_method("get_all_npc_ai_instances"): return
-	var all_npcs = AISvc.get_all_npc_ai_instances()
-	for npc_ai in all_npcs.values():
-		if is_instance_valid(npc_ai):
-			_scan_for_npc(npc_ai)
+## Called every frame. Manages the tick rate for perception scans.
+func _process(delta: float):
+	_tick_accumulator += delta
+	if _tick_accumulator >= perception_tick_interval:
+		_tick_accumulator = fmod(_tick_accumulator, perception_tick_interval)
+		_perform_perception_scan()
 
-## Simulates what a single NPC can perceive from its current state and location.
-func _scan_for_npc(npc_ai: NPCAI) -> void:
-	var npc_node = npc_ai.get_parent()
-	if not is_instance_valid(npc_node) or not npc_node is Node3D:
+## Scans the world from each NPC's perspective and updates their memory with perceived facts.
+func _perform_perception_scan():
+	var all_npcs = _ai_manager._npc_ai_instances
+	if all_npcs.is_empty():
 		return
 
-	var npc_position = npc_node.global_position
-	var perception_range = npc_ai.definition.perception_range
-	var perceived_entities = WorldSvc.get_entities_in_range(npc_position, perception_range)
-	
-	if perceived_entities.is_empty(): return
+	# This is a global scan for all NPCs. In a large-scale simulation, this would be
+	# optimized to only scan for NPCs in active areas (e.g., near the player).
+	for npc_instance_id in all_npcs:
+		var npc_ai: NPCAI = all_npcs[npc_instance_id]
+		if not is_instance_valid(npc_ai):
+			continue
 		
-	var perception_count = 0
-	for entity_node in perceived_entities:
-		if not is_instance_valid(entity_node): continue
-		var entity_id = entity_node.get_instance_id()
-		if entity_id == npc_node.get_instance_id(): continue
-		
-		var memory = npc_ai.get_memory()
+		var npc_node = npc_ai.get_parent() # Assuming NPCAI is a child of the CharacterBody3D
+		if not is_instance_valid(npc_node) or not npc_node is Node3D:
+			continue
 
-		if entity_node is Item:
-			var item_def = entity_node.definition
-			if is_instance_valid(item_def):
-				memory.add_fact(KnownFact.new("ENTITY_INFO", entity_id, "entity_type", item_def.entity_type))
-				perception_count += 1
+		var npc_position = npc_node.global_position
+		# The perception range should ideally come from the NPC's definition.
+		var perception_range = 20.0 
+
+		var entities_in_range = _world_manager.get_entities_in_range(npc_position, perception_range)
 		
-		var entity_states = WorldSvc.get_all_entity_states(entity_id)
-		for state_key in entity_states:
-			var state_value = entity_states[state_key]
-			
-			# DEFINITIVE FIX: When perceiving an "is_at" state, create the correct
-			# "ENTITY_LOCATION" fact type that the GOAPPlanner expects.
-			if state_key == "is_at":
-				memory.add_fact(KnownFact.new("ENTITY_LOCATION", entity_id, "is_at", state_value))
-			else:
-				# For all other states, create a generic ENTITY_STATE fact.
-				memory.add_fact(KnownFact.new("ENTITY_STATE", entity_id, state_key, state_value))
-			
-			perception_count += 1
-	
-	if perception_count > 0:
-		print("PerceptionSvc: '%s' learned %d new facts about the world." % [npc_ai.definition.entity_name, perception_count])
+		if not entities_in_range.is_empty():
+			#print("PerceptionSvc: '%s' perceived %d entities." % [npc_ai.name, entities_in_range.size()])
+			for entity_node in entities_in_range:
+				# Don't perceive self
+				if entity_node.get_instance_id() == npc_node.get_instance_id():
+					continue
+
+				var fact_id = "entity_loc_%d" % entity_node.get_instance_id()
+				var fact_type = "ENTITY_LOCATION"
+				var source = "OBSERVATION"
+				
+				# Populate fact data with relevant information about the perceived entity.
+				var entity_data = {
+					"instance_id": entity_node.get_instance_id(),
+					"entity_id_name": entity_node.entity_id_name,
+					"entity_type": entity_node.entity_type,
+					"position": entity_node.global_position
+				}
+
+				# Create the fact with all required constructor arguments.
+				var fact = KnownFactRef.new(fact_id, fact_type, source, entity_data)
+				
+				npc_ai._npc_memory.add_fact(fact)

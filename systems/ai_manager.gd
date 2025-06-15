@@ -56,10 +56,11 @@ func _process(delta: float):
 func _initialize_worker_threads():
 	for i in range(num_worker_threads):
 		var worker = AIWorkerThread.new(i, _entity_manager)
-		worker.plan_generated.connect(_on_plan_generated.bind(i))
-		worker.plan_failed.connect(_on_plan_failed.bind(i))
-		worker.goal_selected.connect(_on_goal_selected.bind(i))
-		worker.processing_complete.connect(_on_worker_processing_complete.bind(i))
+		# Connect signals directly without .bind() as we are not using the worker_id parameter in the handlers
+		worker.plan_generated.connect(_on_plan_generated)
+		worker.plan_failed.connect(_on_plan_failed)
+		worker.goal_selected.connect(_on_goal_selected)
+		worker.processing_complete.connect(_on_worker_processing_complete)
 		_worker_threads.append(worker)
 		worker.start_thread()
 		print("AIManager: Spawned AIWorkerThread %d." % i)
@@ -184,12 +185,11 @@ func _on_worker_processing_complete(worker_id: int):
 ## The plan is then relayed back to the corresponding NPCAI instance on the main thread.
 ##
 ## Parameters:
-## - worker_id: The ID of the worker thread that generated the plan.
 ## - npc_instance_id: The instance ID of the NPC for which the plan was generated.
 ## - goal_id: The ID of the goal for which the plan was generated.
 ## - plan: The generated sequence of GOAPActionDefinition IDs.
 ## - blackboard_snapshot: The blackboard snapshot used for planning (can be used for post-plan validation/debugging).
-func _on_plan_generated(worker_id: int, npc_instance_id: int, goal_id: String, plan: Array, blackboard_snapshot: Dictionary):
+func _on_plan_generated(npc_instance_id: int, goal_id: String, plan: Array, blackboard_snapshot: Dictionary):
 	# All thread results must be processed on the main thread.
 	# Using call_deferred ensures this.
 	call_deferred("_process_plan_result", npc_instance_id, goal_id, plan, true, "")
@@ -198,21 +198,19 @@ func _on_plan_generated(worker_id: int, npc_instance_id: int, goal_id: String, p
 ## The failure is relayed back to the corresponding NPCAI instance on the main thread.
 ##
 ## Parameters:
-## - worker_id: The ID of the worker thread where planning failed.
 ## - npc_instance_id: The instance ID of the NPC for which planning failed.
 ## - goal_id: The ID of the goal for which planning failed (may be empty if no goal was selected).
 ## - reason: A string explaining why the plan failed.
-func _on_plan_failed(worker_id: int, npc_instance_id: int, goal_id: String, reason: String):
+func _on_plan_failed(npc_instance_id: int, goal_id: String, reason: String):
 	call_deferred("_process_plan_result", npc_instance_id, goal_id, [], false, reason)
 
 ## Callback for when an AI worker thread has selected a goal.
 ## This is called from the worker thread, so we defer the actual processing.
 ##
 ## Parameters:
-## - worker_id: The ID of the worker thread that selected the goal.
 ## - npc_instance_id: The instance ID of the NPC.
 ## - goal_id: The ID of the selected goal.
-func _on_goal_selected(worker_id: int, npc_instance_id: int, goal_id: String):
+func _on_goal_selected(npc_instance_id: int, goal_id: String):
 	call_deferred("_process_goal_selection", npc_instance_id, goal_id)
 
 ## Processes the goal selection result on the main thread.
