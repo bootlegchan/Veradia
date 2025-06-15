@@ -167,12 +167,16 @@ func _calculate_goal_utility(goal_definition: GOAPGoalDefinition, npc_blackboard
 	if npc_blackboard_snapshot.has("active_cognitive_biases"):
 		var active_biases: Dictionary = npc_blackboard_snapshot["active_cognitive_biases"]
 		for bias_id in active_biases:
-			var bias_def = _entity_manager.get_cognitive_bias(bias_id) # Assumes EntityManager can get biases
-			if bias_def:
-				# This part requires CognitiveBiasDefinition to be implemented with influence_on_utility_evaluation.
-				# For now, it's a placeholder. When bias def is created, we'll implement actual influence.
-				# Example: total_utility *= (1.0 + bias_def.influence_on_utility_evaluation.get(goal_definition.goal_id, 0.0))
-				pass # TODO: Implement actual influence of cognitive biases
+			# NOTE: This assumes CognitiveBiasDefinition exists and can be retrieved by EntityManager
+			# and has an 'influence_on_utility_evaluation' property that's a dictionary mapping goal_ids to multipliers.
+			var bias_def = _entity_manager.get_cognitive_bias(bias_id)
+			if bias_def and bias_def.has_method("get_influence_on_utility_evaluation"): # Defensive check
+				var influence_map = bias_def.get_influence_on_utility_evaluation()
+				if influence_map.has(goal_definition.goal_id):
+					total_utility *= (1.0 + influence_map[goal_definition.goal_id]) # Apply as a multiplier
+				elif influence_map.has("default"): # Apply a default influence if specific not found
+					total_utility *= (1.0 + influence_map["default"])
+
 
 	return total_utility
 
