@@ -146,9 +146,9 @@ func _dispatch_planning_tasks():
 				var npc_ai: NPCAI = _npc_ai_instances.get(npc_instance_id)
 
 				if is_instance_valid(npc_ai):
-					# Create a snapshot of the NPC's state for the worker thread.
-					# This prevents race conditions and ensures thread safety.
-					var blackboard_snapshot: Dictionary = npc_ai.get_blackboard_snapshot().duplicate(true)
+					# Get a deep copy (snapshot) of the NPC's blackboard data for the worker thread.
+					# This is crucial for thread safety, ensuring the worker operates on immutable data.
+					var blackboard_snapshot: Dictionary = npc_ai.get_blackboard_snapshot().get_snapshot()
 					var task_data = {
 						"npc_instance_id": npc_instance_id,
 						"blackboard_snapshot": blackboard_snapshot,
@@ -229,13 +229,13 @@ func _process_plan_result(npc_instance_id: int, goal_id: String, plan: Array, su
 	var npc_ai: NPCAI = _npc_ai_instances.get(npc_instance_id)
 	if is_instance_valid(npc_ai):
 		if success:
-			npc_ai.receive_plan(goal_id, plan)
+			npc_ai.receive_plan(npc_instance_id, goal_id, plan) # Pass npc_instance_id as expected by receive_plan
 			npc_plan_generated.emit(npc_instance_id, goal_id, plan)
 			print("AIManager: Plan found for '%s':" % npc_ai.name)
 			for action_id in plan:
 				print("  - %s" % _entity_manager.get_goap_action(action_id).action_id) # Print action ID
 		else:
-			npc_ai.plan_failed(goal_id, reason)
+			npc_ai.plan_failed(npc_instance_id, goal_id, reason) # Pass npc_instance_id as expected by plan_failed
 			npc_plan_failed.emit(npc_instance_id, goal_id, reason)
 			print("AIManager: Failed to find a plan for '%s' to achieve goal '%s'. Reason: %s" % [npc_ai.name, goal_id, reason])
 	else:
