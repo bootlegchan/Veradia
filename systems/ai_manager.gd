@@ -10,10 +10,10 @@ signal npc_plan_generated(npc_instance_id: int, goal_id: String, plan: Array)
 ## Signal emitted when plan generation fails for an NPC.
 signal npc_plan_failed(npc_instance_id: int, goal_id: String, reason: String)
 
-## Reference to the GlobalTimeManager for synchronized ticking.
-@onready var _time_manager: GlobalTimeManager = get_node("/root/GlobalTimeManager")
-## Reference to the EntityManager for accessing AI definitions.
-@onready var _entity_manager: EntityManager = get_node("/root/EntityManager")
+## Reference to the GlobalTimeManager for synchronized ticking (accessed via Autoload name).
+@onready var _time_manager: GlobalTimeManager = get_node("/root/TimeSvc")
+## Reference to the EntityManager for accessing AI definitions (accessed via Autoload name).
+@onready var _entity_manager: EntityManager = get_node("/root/EntitySvc")
 
 ## Dictionary to store all active NPCAI instances, keyed by their instance ID.
 var _npc_ai_instances: Dictionary = {}

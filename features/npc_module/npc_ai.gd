@@ -68,11 +68,11 @@ var _current_action_index: int = -1
 var _is_planning: bool = false
 
 ## Global System References (Autoloads)
-@onready var _ai_manager: AIManager = get_node("/root/AIManager")
-@onready var _entity_manager: EntityManager = get_node("/root/EntityManager")
-@onready var _world_manager: WorldManager = get_node("/root/WorldManager")
-@onready var _action_primitive_handler: ActionPrimitiveHandler = get_node("/root/ActionPrimitiveHandler")
-@onready var _time_manager: GlobalTimeManager = get_node("/root/GlobalTimeManager")
+@onready var _ai_manager: AIManager = get_node("/root/AISvc")
+@onready var _entity_manager: EntityManager = get_node("/root/EntitySvc")
+@onready var _world_manager: WorldManager = get_node("/root/WorldSvc")
+@onready var _action_primitive_handler: ActionPrimitiveHandler = get_node("/root/ActionHandlerSvc")
+@onready var _time_manager: GlobalTimeManager = get_node("/root/TimeSvc")
 
 ## Timers for state updates
 var _last_need_tick_minutes: int = 0
@@ -85,7 +85,7 @@ func _ready():
 	# NPCMemory needs a reference to this NPCAI for its internal logic
 	# that depends on NPCAI's personality and biases.
 	_npc_blackboard = NPCBlackboardRef.new()
-	_npc_memory = NPCMemoryRef.new(self)
+	_npc_memory = NPCMemoryRef.new(self) # Pass 'self' (this NPCAI instance) to NPCMemory
 	_daily_schedule = DailyScheduleRef.new() # DailySchedule currently requires no args, adjust if needed
 
 	_ai_manager.npc_plan_generated.connect(receive_plan)

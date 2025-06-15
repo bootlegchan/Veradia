@@ -4,12 +4,12 @@
 ## to enact changes in the game world, and can return data back to the NPCAI for internal state updates.
 class_name ActionPrimitiveHandler extends Node
 
-## Reference to the WorldManager singleton.
-@onready var _world_manager: WorldManager = get_node("/root/WorldManager")
-## Reference to the EntityManager singleton.
-@onready var _entity_manager: EntityManager = get_node("/root/EntityManager")
-## Reference to the AIManager singleton.
-@onready var _ai_manager: AIManager = get_node("/root/AIManager")
+## Reference to the WorldManager singleton (accessed via Autoload name).
+@onready var _world_manager: WorldManager = get_node("/root/WorldSvc")
+## Reference to the EntityManager singleton (accessed via Autoload name).
+@onready var _entity_manager: EntityManager = get_node("/root/EntitySvc")
+## Reference to the AIManager singleton (accessed via Autoload name).
+@onready var _ai_manager: AIManager = get_node("/root/AISvc")
 ## Reference to the SimDataRecorder singleton.
 # @onready var _sim_data_recorder: SimDataRecorder = get_node("/root/SimDataRecorder") # Uncomment when SimDataRecorder exists
 
