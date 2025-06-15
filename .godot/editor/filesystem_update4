@@ -17,3 +17,4 @@ res://features/npc_module/npc_ai.gd
 res://systems/entity_manager.gd
 res://definitions/needs/need_hunger.json
 res://features/npc_module/components/npc_memory.gd
+res://systems/global_time_manager.gd
