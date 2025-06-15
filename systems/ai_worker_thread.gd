@@ -73,6 +73,9 @@ func _process_task(task_data: Dictionary):
 	var blackboard_snapshot: Dictionary = task_data["blackboard_snapshot"]
 	var ongoing_goals: Array[String] = task_data["ongoing_goals"]
 
+	# DEBUG: Print the full blackboard snapshot received by the worker
+	print("DEBUG: AIWorkerThread %d - Received snapshot for NPC %d: %s" % [_worker_id, npc_instance_id, JSON.stringify(blackboard_snapshot, "  ")])
+
 	# Step 1: Select the highest utility goal
 	var selected_goal_id: String = _select_highest_utility_goal(blackboard_snapshot, ongoing_goals)
 
@@ -121,7 +124,7 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 
 		# Debugging: Print current state of relevant blackboard property for EatFood
 		if goal_def.goal_id == "EatFood":
-			print("DEBUG: AIWorkerThread - Evaluating EatFood Goal.")
+			print("DEBUG: AIWorkerThread %d - Evaluating EatFood Goal. For NPC %d" % [_worker_id, npc_blackboard_snapshot.get("npc_instance_id", -1)])
 			print("DEBUG:   Snapshot hunger_satisfied: %s" % npc_blackboard_snapshot.get("hunger_satisfied"))
 			print("DEBUG:   Goal preconditions hunger_satisfied: %s" % goal_def.preconditions.get("hunger_satisfied"))
 			print("DEBUG:   Goal preconditions met in snapshot: %s" % goal_preconditions_met_in_snapshot)
@@ -129,7 +132,7 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 		# CRITICAL: If the goal's preconditions are already met, this goal is satisfied
 		# and should NOT be pursued. Skip it entirely for selection.
 		if goal_preconditions_met_in_snapshot:
-			print("DEBUG: Skipping goal '%s' because preconditions already met." % goal_def.goal_id)
+			print("DEBUG: AIWorkerThread %d - Skipping goal '%s' because preconditions already met for NPC %d." % [_worker_id, goal_def.goal_id, npc_blackboard_snapshot.get("npc_instance_id", -1)])
 			continue # Skip this goal, it's already achieved
 
 		var current_utility: float = _calculate_goal_utility(goal_def, npc_blackboard_snapshot)
