@@ -53,6 +53,10 @@ func _perform_perception_scan():
 				# Don't perceive self
 				if entity_node.get_instance_id() == npc_node.get_instance_id():
 					continue
+				
+				# CRITICAL: Check if the perceived node is a valid game entity with our custom script properties.
+				if not ("entity_id_name" in entity_node and "entity_type" in entity_node):
+					continue # This is not a game entity we care about (e.g., it's a Marker3D, a light, etc.)
 
 				var fact_id = "entity_loc_%d" % entity_node.get_instance_id()
 				var fact_type = "ENTITY_LOCATION"
