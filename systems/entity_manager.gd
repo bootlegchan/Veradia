@@ -177,7 +177,8 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 
 	# Populate resource properties from dictionary data
 	for key in data:
-		if resource.has_property(key):
+		# Use 'in' operator to check if property exists. It's the idiomatic GDScript way.
+		if key in resource:
 			var value = data[key]
 			if key == "utility_evaluators" and value is Array:
 				resource.set(key, _parse_utility_evaluators(value))
@@ -247,7 +248,8 @@ func _parse_utility_evaluators(evaluators_data: Array[Dictionary]) -> Array[Util
 
 		# Populate the evaluator instance's properties from the dictionary
 		for key in evaluator_dict:
-			if evaluator_instance.has_property(key):
+			# Use 'in' operator to check if property exists.
+			if key in evaluator_instance:
 				if key == "evaluation_curve" and evaluator_dict[key] is String:
 					# Assuming curve path is stored as string in JSON
 					var curve_path = evaluator_dict[key]
