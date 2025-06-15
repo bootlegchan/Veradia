@@ -27,13 +27,14 @@ class PlannerNode extends RefCounted:
 ## Finds a plan (a sequence of action IDs) to achieve a desired goal from an initial world state.
 ##
 ## Parameters:
-## - initial_world_state: A Dictionary representing the current known state of the world.
+## - initial_world_state: A Dictionary representing the current known state of the world (from NPCBlackboard snapshot).
 ## - goal_preconditions: A Dictionary representing the desired conditions for the goal to be achieved.
-## - all_actions: An Array of GOAPActionDefinition resources representing all available actions.
-## - entity_manager: A reference to the global EntityManager, used for retrieving action definitions.
+## - all_actions: A Dictionary of GOAPActionDefinition resources, keyed by their action_id.
+##                This allows efficient lookup of actions during planning. The planner operates
+##                solely on this provided data, adhering to the principle of thread-safe snapshots.
 ## Returns:
 ## - Array[String]: An array of GOAPActionDefinition IDs representing the plan, or an empty array if no plan is found.
-func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, all_actions: Array[GOAPActionDefinition], entity_manager: EntityManager) -> Array:
+func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, all_actions: Dictionary) -> Array:
 	if _check_preconditions_met(initial_world_state, goal_preconditions):
 		# Goal already achieved, no plan needed.
 		return []
@@ -44,7 +45,8 @@ func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, 
 	var start_node = PlannerNode.new(initial_world_state, "", null, 0.0, _calculate_heuristic(initial_world_state, goal_preconditions))
 	_add_to_open_set(open_set, start_node)
 
-	var came_from: Dictionary = {} # Key: node, Value: parent node. Used to reconstruct path.
+	# came_from is not strictly needed if parent is stored in PlannerNode, but can be useful for debugging path reconstruction.
+	# var came_from: Dictionary = {} # Key: node, Value: parent node. Used to reconstruct path.
 	var final_node: PlannerNode = null
 
 	while not open_set.is_empty():
@@ -59,7 +61,8 @@ func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, 
 		closed_set[_hash_state(current_node.state)] = current_node
 
 		# Explore neighbors (possible actions)
-		for action_def in all_actions:
+		for action_id in all_actions:
+			var action_def: GOAPActionDefinition = all_actions[action_id]
 			# Check if the action's preconditions are met in the current_node's state
 			if _check_preconditions_met(current_node.state, action_def.preconditions):
 				var next_state = _apply_action_effects(current_node.state, action_def.effects)
@@ -90,8 +93,8 @@ func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, 
 												tentative_g_cost, _calculate_heuristic(next_state, goal_preconditions))
 					_add_to_open_set(open_set, next_node)
 
-				if next_node != null:
-					came_from[next_node] = current_node # Store path for reconstruction
+				# if next_node != null: # came_from not used for path reconstruction in this version
+				#	came_from[next_node] = current_node # Store path for reconstruction
 
 	if final_node != null:
 		return _reconstruct_path(final_node)
@@ -99,6 +102,7 @@ func find_plan(initial_world_state: Dictionary, goal_preconditions: Dictionary, 
 		return [] # No plan found
 
 ## Checks if all preconditions in 'required_state' are met in 'current_state'.
+## This method is publicly accessible because AIWorkerThread also uses it for goal selection validation.
 ##
 ## Parameters:
 ## - current_state: The current world state as a Dictionary.
