@@ -218,14 +218,19 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 
 
 ## Parses an array of utility evaluator data dictionaries into actual UtilityEvaluator instances.
+## Arrays parsed from JSON are generic, so this function must accept a generic Array.
 ##
 ## Parameters:
-## - evaluators_data: An Array of Dictionaries, each defining a utility evaluator.
+## - evaluators_data: A generic Array of Dictionaries, each defining a utility evaluator.
 ## Returns:
 ## - Array[UtilityEvaluator]: An array of instantiated and configured UtilityEvaluator objects.
-func _parse_utility_evaluators(evaluators_data: Array[Dictionary]) -> Array[UtilityEvaluator]:
+func _parse_utility_evaluators(evaluators_data: Array) -> Array[UtilityEvaluator]:
 	var parsed_evaluators: Array[UtilityEvaluator] = []
 	for evaluator_dict in evaluators_data:
+		if not evaluator_dict is Dictionary:
+			push_warning("EntityManager: Item in utility_evaluators array is not a dictionary. Skipping.")
+			continue
+
 		var evaluator_type = evaluator_dict.get("evaluator_type", "")
 		if evaluator_type.is_empty():
 			push_warning("EntityManager: Utility evaluator data missing 'evaluator_type'. Skipping.")
