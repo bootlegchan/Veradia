@@ -101,6 +101,8 @@ func _ready():
 ## Parameters:
 ## - definition: The NPCEntityDefinition resource for this NPC.
 func initialize(definition: NPCEntityDefinition):
+	print("DEBUG: NPCAI.initialize() called for '%s'." % definition.entity_name)
+
 	_definition = definition
 	name = _definition.entity_name # Set node name for easier debugging in scene tree
 	_current_hp = _definition.initial_physiological_level
@@ -199,7 +201,7 @@ func _tick_granular_needs(current_total_minutes: int):
 		if new_value != current_value:
 			_granular_needs_state[need_id] = new_value
 			need_changed.emit(get_instance_id(), need_id, new_value)
-			print("DEBUG: NPCAI %d - Need '%s' changed to %f" % [get_instance_id(), need_id, new_value])
+			#print("DEBUG: NPCAI %d - Need '%s' changed to %f" % [get_instance_id(), need_id, new_value])
 
 			# Apply/remove associated tags based on need level
 			if need_id == "HUNGER": # Example for HUNGER, extend for other needs
@@ -210,11 +212,11 @@ func _tick_granular_needs(current_total_minutes: int):
 				if not hunger_satisfied_now and not tag_was_active: # Hunger increased above threshold, add tag
 					_active_tags[hungry_tag_id] = new_value # Strength can be need value
 					tag_changed.emit(get_instance_id(), hungry_tag_id, new_value)
-					print("DEBUG: NPCAI %d - Tag '%s' activated with strength %f" % [get_instance_id(), hungry_tag_id, new_value])
+					#print("DEBUG: NPCAI %d - Tag '%s' activated with strength %f" % [get_instance_id(), hungry_tag_id, new_value])
 				elif hunger_satisfied_now and tag_was_active: # Hunger satisfied, remove tag
 					_active_tags.erase(hungry_tag_id)
 					tag_changed.emit(get_instance_id(), hungry_tag_id, 0.0) # Strength 0.0 means removed
-					print("DEBUG: NPCAI %d - Tag '%s' deactivated." % [get_instance_id(), hungry_tag_id])
+					#print("DEBUG: NPCAI %d - Tag '%s' deactivated." % [get_instance_id(), hungry_tag_id])
 
 
 	_last_need_tick_minutes = current_total_minutes
@@ -269,7 +271,7 @@ func request_new_plan():
 	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
-	print("DEBUG: NPCAI %d - Requesting new plan." % get_instance_id())
+	#print("DEBUG: NPCAI %d - Requesting new plan." % get_instance_id())
 	_ai_manager.request_plan_for_npc(get_instance_id())
 
 ## Receives a new plan from the AIManager.
@@ -287,7 +289,7 @@ func receive_plan(npc_instance_id: int, goal_id: String, plan: Array):
 	_current_goal_id = goal_id
 	_current_plan = plan
 	_current_action_index = 0
-	print("NPC '%s' received plan for goal '%s'. Plan length: %d" % [name, _current_goal_id, _current_plan.size()])
+	#print("NPC '%s' received plan for goal '%s'. Plan length: %d" % [name, _current_goal_id, _current_plan.size()])
 
 ## Handles the failure of plan generation.
 ## This method is called via `call_deferred` from AIManager on the main thread.
@@ -457,7 +459,7 @@ func _update_blackboard():
 	if hunger_def and _granular_needs_state.has("HUNGER"):
 		hunger_satisfied = _granular_needs_state["HUNGER"] <= hunger_def.satisfaction_threshold
 	_npc_blackboard.set_data("hunger_satisfied", hunger_satisfied)
-	print("DEBUG: NPCAI %d - Blackboard updated. hunger_satisfied: %s (from hunger %f <= threshold %f)" % [get_instance_id(), hunger_satisfied, _granular_needs_state.get("HUNGER", -1.0), hunger_def.satisfaction_threshold])
+	#print("DEBUG: NPCAI %d - Blackboard updated. hunger_satisfied: %s (from hunger %f <= threshold %f)" % [get_instance_id(), hunger_satisfied, _granular_needs_state.get("HUNGER", -1.0), hunger_def.satisfaction_threshold])
 	
 	# Example: check if NPC has a specific item
 	_npc_blackboard.set_data("has_item_apple", _possessed_items.has("item_apple") and _possessed_items["item_apple"] > 0)
