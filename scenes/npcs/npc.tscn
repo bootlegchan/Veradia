@@ -1,10 +1,19 @@
-[gd_scene load_steps=3 format=3 uid="uid://cn256hg2ls6i5"]
+[gd_scene load_steps=5 format=3 uid="uid://c67f8r7w84j2g"]
 
-[ext_resource type="Script" uid="uid://cpvqsu6j7uo5d" path="res://features/npc_module/npc.gd" id="1_ivh6b"]
-[ext_resource type="Script" uid="uid://cys6121qeuxut" path="res://features/npc_module/npc_ai.gd" id="2_m5fb5"]
+[ext_resource type="Script" path="res://features/npc_module/npc.gd" id="1_q581l"]
+[ext_resource type="Script" path="res://features/npc_module/npc_ai.gd" id="2_2x3mo"]
 
-[node name="Npc" type="Node3D"]
-script = ExtResource("1_ivh6b")
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_6r0g6"]
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_n8wmf"]
 
-[node name="AI" type="Node" parent="."]
-script = ExtResource("2_m5fb5")
+[node name="NPC" type="CharacterBody3D"]
+script = ExtResource("1_q581l")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_6r0g6")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_n8wmf")
+
+[node name="NPCAI" type="Node" parent="."]
+script = ExtResource("2_2x3mo")

@@ -1,56 +1,53 @@
-# NPCBlackboard.gd
+## npc_blackboard.gd
+## Provides a centralized, thread-safe, snapshot-able interface for an NPC's
+## current internal state data. It is essentially a managed dictionary.
+class_name NPCBlackboard extends RefCounted
 
-# A thread-safe data container that provides a snapshot of an NPC's internal state
-# and its memory-based view of the world. It is populated by the NPCAI before a
-# planning request and provides a deep copy of its data to the AI worker thread.
-class_name NPCBlackboard
-extends RefCounted
+## The underlying dictionary holding the NPC's state data.
+var _data: Dictionary = {}
 
-# The internal dictionary holding the NPC's state snapshot.
-var _state: Dictionary = {}
+## Initializes the blackboard from a given snapshot.
+## This is useful for restoring a state.
+##
+## Parameters:
+## - snapshot: A dictionary containing the initial state data.
+func initialize_from_snapshot(snapshot: Dictionary):
+	_data = snapshot.duplicate(true)
 
-
-## Populates the blackboard with the current state of a given NPCAI node.
-## This is the primary way the blackboard is kept up-to-date.
-## @param npc_ai: The NPCAI instance to source the data from.
-func initialize_from_npc(npc_ai: NPCAI) -> void:
-	clear()
-	
-	if not is_instance_valid(npc_ai):
-		push_error("NPCBlackboard: Provided NPCAI instance is not valid.")
-		return
-	
-	# --- Populate from World Knowledge ---
-	# This is the most crucial step: the blackboard's world state is now a direct
-	# snapshot of the NPC's subjective memory. The planner will see the world
-	# exactly as the NPC believes it to be.
-	if is_instance_valid(npc_ai._memory):
-		self._state = npc_ai._memory.get_memory_based_world_state()
-	
-	# --- Populate from Internal State ---
-	# We still need to add the NPC's internal needs and other non-memory states
-	# to the blackboard for the utility system to evaluate.
-	
-	# Add granular need values.
-	for need_id in npc_ai._granular_needs_state:
-		var key = "need_%s" % need_id
-		var value = npc_ai._granular_needs_state[need_id]
-		set_value(key, value)
-
-
-## Returns a deep copy of the entire state dictionary.
-## This is the most critical method for thread safety.
-## @return A deep copy of the internal state dictionary.
+## Returns a deep copy of the blackboard's data, ensuring thread safety.
+## This snapshot can be passed to other threads (like AIWorkerThread) without
+## risking race conditions.
+##
+## Returns:
+## - Dictionary: A deep copy of the internal data dictionary.
 func get_snapshot() -> Dictionary:
-	return _state.duplicate(true)
+	return _data.duplicate(true)
 
+## Checks if the blackboard's current state satisfies a given set of conditions.
+##
+## Parameters:
+## - state: A dictionary of key-value pairs representing the conditions to check.
+## Returns:
+## - bool: True if all conditions are met, false otherwise.
+func check_state(state: Dictionary) -> bool:
+	for key in state:
+		if not _data.has(key) or _data[key] != state[key]:
+			return false
+	return true
 
-# --- Helper Methods ---
+## Retrieves a single piece of data from the blackboard.
+##
+## Parameters:
+## - key: The key of the data to retrieve.
+## Returns:
+## - Variant: The data associated with the key, or null if not found.
+func get_data(key: String):
+	return _data.get(key)
 
-## Sets a value in the blackboard's state dictionary.
-func set_value(key: String, value: Variant) -> void:
-	_state[key] = value
-
-## Clears all data from the blackboard.
-func clear() -> void:
-	_state.clear()
+## Sets or updates a single piece of data on the blackboard.
+##
+## Parameters:
+## - key: The key of the data to set or update.
+## - value: The new value for the given key.
+func set_data(key: String, value):
+	_data[key] = value
