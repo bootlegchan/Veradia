@@ -60,7 +60,7 @@ var _personality_state: Dictionary = {}
 ## AI Components (RefCounted, owned by NPCAI)
 var _npc_blackboard: NPCBlackboardRef
 var _npc_memory: NPCMemoryRef
-var _daily_schedule: DailyScheduleRef # Declared as type of preloaded ref
+var _daily_schedule: DailyScheduleRef
 
 var _current_goal_id: String = ""
 var _current_plan: Array = [] # Array of GOAPActionDefinition IDs
@@ -81,11 +81,12 @@ var _last_memory_tick_minutes: int = 0
 
 ## Called when the node enters the scene tree for the first time.
 func _ready():
-	# Instantiate RefCounted components using their preloaded references
+	# Instantiate RefCounted components.
+	# NPCMemory needs a reference to this NPCAI for its internal logic
+	# that depends on NPCAI's personality and biases.
 	_npc_blackboard = NPCBlackboardRef.new()
-	# Pass initial personality traits and cognitive biases to NPCMemory constructor
-	_npc_memory = NPCMemoryRef.new(_personality_state, _active_cognitive_biases) 
-	_daily_schedule = DailyScheduleRef.new() # Instantiate DailySchedule (if it has no required constructor args for now)
+	_npc_memory = NPCMemoryRef.new(self)
+	_daily_schedule = DailyScheduleRef.new() # DailySchedule currently requires no args, adjust if needed
 
 	_ai_manager.npc_plan_generated.connect(receive_plan)
 	_ai_manager.npc_plan_failed.connect(plan_failed)
@@ -95,6 +96,7 @@ func _ready():
 	)
 
 ## Initializes the NPC AI with its definition and registers with global managers.
+## This method is called *after* _ready() by EntityManager.
 ##
 ## Parameters:
 ## - definition: The NPCEntityDefinition resource for this NPC.
@@ -111,8 +113,9 @@ func initialize(definition: NPCEntityDefinition):
 	_initialize_granular_needs()
 	_initialize_tags()
 	_initialize_cognitive_biases()
-	# Re-initialize NPCMemory with correct data after personality/biases are loaded from definition
-	_npc_memory._init(_personality_state, _active_cognitive_biases) 
+	# No need to call _npc_memory._init() again; it was handled by .new(self) in _ready().
+	# The _npc_memory can now access updated _personality_state and _active_cognitive_biases
+	# directly via its _parent_npc_ai reference whenever it needs them.
 
 	_ai_manager.register_npc_ai(self)
 

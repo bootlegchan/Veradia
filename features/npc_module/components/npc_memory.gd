@@ -1,102 +1,195 @@
-# npc_memory.gd
+## npc_memory.gd
+## Manages an NPC's dynamic, limited, and elastic knowledge of the world.
+## This is the sole source of "beliefs" about the external world for the NPC.
+## It relies on the parent NPCAI for access to personality traits and cognitive biases.
+class_name NPCMemory extends RefCounted
 
-# Manages an NPC's subjective knowledge of the world through a collection of
-# KnownFact objects. This component is the sole source of "beliefs" for the NPC,
-# forming the basis for all its decisions. The GOAP planner will query this memory
-# to understand what the NPC *thinks* is true about the world.
-class_name NPCMemory
-extends RefCounted
-
-const MIN_CERTAINTY_THRESHOLD = 0.2
-
+## Dictionary of known facts, keyed by unique fact identifiers (e.g., entity ID + fact type).
 var _known_facts: Dictionary = {}
-var _owner_npc: NPCAI
+## Dictionary of known relationships with other NPCs, keyed by their instance IDs.
+var _known_relationships: Dictionary = {}
+## Dictionary to track trust levels for different information sources, keyed by source ID.
+var _source_trust: Dictionary = {}
 
-func _init(owner: NPCAI) -> void:
-	self._owner_npc = owner
+## Reference to the parent NPCAI instance. Used to query personality traits and cognitive biases.
+var _parent_npc_ai: NPCAI
 
-func add_fact(new_fact: KnownFact) -> void:
-	var fact_key = _generate_fact_key(new_fact)
-	_known_facts[fact_key] = new_fact
+## Fact decay rates, can be influenced by personality or tags.
+var _fact_decay_rates: Dictionary = {
+	"default": 0.001, # Default decay rate per minute
+	"LOW_IMPORTANCE": 0.005
+}
 
-func remove_fact(fact_type: String, subject_id: int, key: String) -> void:
-	var fact_key = "%s_%s_%s" % [fact_type, subject_id, key]
-	if _known_facts.has(fact_key):
-		_known_facts.erase(fact_key)
+## Initializes the NPC's memory system.
+##
+## Parameters:
+## - parent_npc_ai: The NPCAI instance that owns this memory. Used to query dynamic NPC properties.
+func _init(parent_npc_ai: NPCAI):
+	_parent_npc_ai = parent_npc_ai
+	if not _parent_npc_ai:
+		push_error("NPCMemory: Parent NPCAI reference is null during initialization.")
 
-func _generate_fact_key(fact: KnownFact) -> String:
-	return "%s_%s_%s" % [fact.fact_type, fact.subject_entity_id, fact.key]
+## Stores a new fact or updates an existing one in memory.
+## Handles conflict resolution, certainty calculation, and emotional impact.
+##
+## Parameters:
+## - fact: The KnownFact.gd object to add or update.
+func add_fact(fact: KnownFact):
+	if not fact or fact.fact_id.is_empty():
+		push_warning("NPCMemory: Attempted to add an invalid or empty fact.")
+		return
 
-func get_fact(fact_type: String, subject_id: int, key: String) -> KnownFact:
-	var fact_key = "%s_%s_%s" % [fact_type, subject_id, key]
-	var fact: KnownFact = _known_facts.get(fact_key)
-	if fact and fact.certainty >= MIN_CERTAINTY_THRESHOLD:
-		return fact
-	return null
+	var existing_fact: KnownFact = _known_facts.get(fact.fact_id)
 
-func find_entities_matching_criteria(criteria: Dictionary) -> Array[int]:
-	var potential_entities: Dictionary = {}
-	for fact in _known_facts.values():
-		if fact.certainty < MIN_CERTAINTY_THRESHOLD: continue
-		potential_entities[fact.subject_entity_id] = true
+	if existing_fact:
+		# Conflict resolution: Combine or override based on certainty, source, etc.
+		# For now, a simple update, potentially averaging certainty or taking the higher.
+		# This is where _calculate_incoming_fact_certainty would be used.
+		# For simplicity, we'll just update for now.
+		existing_fact.certainty = max(existing_fact.certainty, fact.certainty) # Take higher certainty
+		existing_fact.timestamp = Time.get_unix_time_from_datetime_dict(Time.get_datetime_dict_from_system()) # Update timestamp
+		# TODO: Implement more sophisticated conflict resolution based on source trust and biases
+		print("NPCMemory: Fact '%s' updated. New certainty: %f" % [fact.fact_id, existing_fact.certainty])
+	else:
+		_known_facts[fact.fact_id] = fact
+		# Initial certainty can be influenced by biases right at perception/addition
+		fact.certainty = _calculate_incoming_fact_certainty(fact)
+		print("NPCMemory: Fact '%s' added. Certainty: %f" % [fact.fact_id, fact.certainty])
 
-	var final_matches: Array[int] = []
-	for entity_id in potential_entities.keys():
-		if _does_entity_match(entity_id, criteria):
-			final_matches.append(entity_id)
-	return final_matches
+	# TODO: Trigger emotional impact based on fact
+	# TODO: Update dynamic source trust based on accuracy of past information from source
 
-func _does_entity_match(entity_id: int, criteria: Dictionary) -> bool:
-	if criteria.has("tags"):
-		for required_tag in criteria.get("tags", []):
-			var fact = get_fact("ENTITY_STATE", entity_id, "has_tag_%s" % required_tag)
-			if not fact or not fact.value: return false
-	if criteria.has("entity_type"):
-		var fact = get_fact("ENTITY_INFO", entity_id, "entity_type")
-		if not fact or fact.value != criteria.get("entity_type"): return false
-	if criteria.has("has_state"):
-		for key in criteria.get("has_state", {}):
-			var fact = get_fact("ENTITY_STATE", entity_id, key)
-			if not fact or fact.value != criteria["has_state"][key]: return false
-	return true
+## Calculates the actual certainty of an incoming fact, influenced by NPC's cognitive biases and personality.
+##
+## Parameters:
+## - fact: The incoming KnownFact to evaluate.
+## Returns:
+## - float: The final certainty score (0.0-1.0) after applying internal modifiers.
+func _calculate_incoming_fact_certainty(fact: KnownFact) -> float:
+	var base_certainty = fact.certainty # Starting from the initial certainty provided by PerceptionManager
 
-## Generates a world state dictionary for the GOAP planner based on memory.
+	if not _parent_npc_ai:
+		return base_certainty # Cannot apply biases if parent is null or not fully initialized.
+
+	var personality_state: Dictionary = _parent_npc_ai._personality_state
+	var active_cognitive_biases: Dictionary = _parent_npc_ai._active_cognitive_biases
+	# Access EntityManager through the parent NPCAI's reference
+	var entity_manager: EntityManager = _parent_npc_ai._entity_manager 
+
+	# Apply influence from cognitive biases
+	for bias_id in active_cognitive_biases:
+		var bias_def = entity_manager.get_cognitive_bias(bias_id)
+		if bias_def and bias_def.has_method("get_influence_on_fact_certainty"):
+			var influence_map = bias_def.get_influence_on_fact_certainty()
+			if influence_map.has(fact.fact_type): # Check for bias specific to fact type
+				base_certainty += influence_map[fact.fact_type]
+			elif influence_map.has("default"): # Apply default bias if no specific match
+				base_certainty += influence_map["default"]
+
+	# Apply influence from personality traits (e.g., skeptical trait reduces certainty)
+	# This requires PersonalityTraitDefinition to have an influence_on_fact_certainty.
+	# Placeholder for future implementation.
+	# for trait_id in personality_state:
+	#	var trait_def = entity_manager.get_personality_trait_definition(trait_id)
+	#	if trait_def and trait_def.has_method("get_influence_on_fact_certainty"):
+	#		var influence_map = trait_def.get_influence_on_fact_certainty()
+	#		if influence_map.has(fact.fact_type):
+	#			base_certainty += influence_map[fact.fact_type] * personality_state[trait_id]
+
+	return clamp(base_certainty, 0.0, 1.0)
+
+## Ticks the memory, causing facts and relationships to decay over time.
+##
+## Parameters:
+## - minutes_passed: The number of game minutes that have passed since the last tick.
+## - active_tags: The dictionary of active tags on the NPC (used to modify decay rates).
+func tick(minutes_passed: int, active_tags: Dictionary):
+	# Decay facts
+	var facts_to_remove: Array = []
+	for fact_id in _known_facts:
+		var fact: KnownFact = _known_facts[fact_id]
+		var decay_rate = _fact_decay_rates.get(fact.importance, _fact_decay_rates["default"])
+
+		# Apply tag influences to decay rate (e.g., "forgetful" tag increases decay)
+		for tag_id in active_tags:
+			# This would require TagDefinition to have an influence_on_memory_decay property.
+			# For now, it's a placeholder.
+			# var tag_def = _entity_manager.get_tag_definition(tag_id)
+			# if tag_def and tag_def.influence_on_memory_decay.has(fact.fact_type):
+			# 	decay_rate += tag_def.influence_on_memory_decay[fact.fact_type] * active_tags[tag_id]
+			pass
+
+		fact.certainty = max(0.0, fact.certainty - (decay_rate * minutes_passed))
+
+		if fact.certainty <= 0.05: # Threshold for forgetting a fact
+			facts_to_remove.append(fact_id)
+
+	for fact_id in facts_to_remove:
+		_known_facts.erase(fact_id)
+		print("NPCMemory: Fact '%s' forgotten due to decay." % fact_id)
+
+	# TODO: Decay relationships (MemoryRelation.gd)
+
+## Retrieves a known fact by its ID.
+##
+## Parameters:
+## - fact_id: The unique ID of the fact.
+## Returns:
+## - KnownFact: The KnownFact object, or null if not found.
+func get_fact(fact_id: String) -> KnownFact:
+	return _known_facts.get(fact_id)
+
+## Checks if the NPC knows a specific location.
+##
+## Parameters:
+## - location_id: The ID of the location.
+## Returns:
+## - bool: True if the NPC knows the location, false otherwise.
+func knows_location(location_id: String) -> bool:
+	# Implement logic to check if a fact about this location exists and has sufficient certainty.
+	# Example: check for fact_type "LEARNED_LOCATION" and location_id in its data.
+	# This requires a standardized fact_id generation or searching through facts.
+	return false # Placeholder
+
+## Retrieves a list of known entities of a specific type.
+##
+## Parameters:
+## - entity_type: The type of entity (e.g., "ITEM", "BUILDING", "NPC").
+## Returns:
+## - Array[int]: An array of instance IDs of known entities.
+func get_known_entities_by_type(entity_type: String) -> Array[int]:
+	# This would require facts to store entity instance IDs and types,
+	# and be queryable by these properties.
+	return [] # Placeholder
+
+## Retrieves the best known entity of a specific type (e.g., closest, highest quality).
+## This would require more sophisticated fact data and sorting logic.
+func get_best_known_entity_of_type(entity_type: String) -> int:
+	return 0 # Placeholder instance ID
+
+## Retrieves the relationship data with another NPC.
+func get_relationship_with(target_npc_id: int):
+	return _known_relationships.get(target_npc_id)
+
+## Retrieves relationships of a specific type (e.g., "FRIEND", "ENEMY").
+func get_relationship_by_type(relation_type: String) -> Array:
+	return [] # Placeholder
+
+## Generates a GOAP-compatible world_state dictionary based only on sufficiently certain known facts.
+## This is the NPC's subjective view of the world.
+##
+## Returns:
+## - Dictionary: The NPC's current world state for GOAP planning.
 func get_memory_based_world_state() -> Dictionary:
 	var world_state: Dictionary = {}
-	if not is_instance_valid(_owner_npc): return world_state
 
-	var self_id = _owner_npc.get_instance_id()
-
-	# Process all facts to build the state
-	for fact in _known_facts.values():
-		if fact.certainty < MIN_CERTAINTY_THRESHOLD: continue
-
-		match fact.fact_type:
-			"ENTITY_STATE":
-				# Generic state: state_1001_is_on = true
-				world_state["state_%s_%s" % [fact.subject_entity_id, fact.key]] = fact.value
-			"NPC_STATE":
-				if fact.subject_entity_id == self_id:
-					# Own state: state_npc_is_at_home = true
-					# Own location: location_npc = 2001
-					if fact.key == "is_at_location":
-						world_state["location_npc"] = fact.value
-					else:
-						world_state["state_npc_%s" % fact.key] = fact.value
-			"ITEM_IN_INVENTORY":
-				# Inventory state: npc_has_item_1001 = true
-				if fact.subject_entity_id == self_id:
-					world_state["npc_has_item_%s" % fact.value] = true
-			"ENTITY_LOCATION":
-				# Location of other entities: location_1001 = 2001
-				world_state["location_%s" % fact.subject_entity_id] = fact.value
-
-	# Add active tags
-	for tag_id in _owner_npc._active_tags:
-		world_state["has_tag_%s" % tag_id] = true
+	# Example: Populate 'has_item_apple' based on memory
+	# This assumes there's a specific fact type or ID for item presence in inventory.
+	# For initial integration, we defer this to NPCAI's direct state for simplicity
+	# as per current design (_update_blackboard already handles it).
+	# This function would be more critical if memory was the *only* source for all blackboard data.
+	# Given _update_blackboard already pulls from NPCAI's direct internal states,
+	# this function might be adapted to *filter* that data based on certainty, or
+	# add derived facts from memory that aren't direct internal states (e.g., "kitchen_is_clean").
 
 	return world_state
-
-func tick_memory_decay(minutes_passed: float) -> void:
-	if minutes_passed <= 0: return
-	# Future implementation.

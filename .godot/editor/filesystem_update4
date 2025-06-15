@@ -16,3 +16,4 @@ res://definitions/base_definitions/npc_entity_definition.gd
 res://features/npc_module/npc_ai.gd
 res://systems/entity_manager.gd
 res://definitions/needs/need_hunger.json
+res://features/npc_module/components/npc_memory.gd
