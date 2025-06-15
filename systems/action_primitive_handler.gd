@@ -38,12 +38,12 @@ func execute_primitive(npc_ai: NPCAI, primitive_data: Dictionary) -> Dictionary:
 				return {"success": false, "outcome_data": {}}
 
 			# Retrieve the actual item ID from the NPC's blackboard based on the key
-			var target_item_id = npc_ai.get_blackboard_snapshot().get_data(target_item_id_key)
-			if target_item_id == null:
-				push_warning("ActionPrimitiveHandler: CONSUME_ITEM failed, no item ID found for key '%s' in blackboard." % target_item_id_key)
+			var target_item_instance_id = npc_ai.get_blackboard_snapshot().get_data(target_item_id_key)
+			if target_item_instance_id == null:
+				push_warning("ActionPrimitiveHandler: CONSUME_ITEM failed, no item instance ID found for key '%s' in blackboard." % target_item_id_key)
 				return {"success": false, "outcome_data": {}}
 
-			var consume_result = _execute_consume_item(npc_ai, target_item_id)
+			var consume_result = _execute_consume_item(npc_ai, target_item_instance_id)
 			success = consume_result["success"]
 			outcome_data = consume_result["outcome_data"]
 
@@ -53,12 +53,12 @@ func execute_primitive(npc_ai: NPCAI, primitive_data: Dictionary) -> Dictionary:
 				push_warning("ActionPrimitiveHandler: PICKUP_ITEM primitive missing 'target_entity_id_key'.")
 				return {"success": false, "outcome_data": {}}
 
-			var target_entity_id = npc_ai.get_blackboard_snapshot().get_data(target_entity_id_key)
-			if target_entity_id == null:
-				push_warning("ActionPrimitiveHandler: PICKUP_ITEM failed, no target entity ID found for key '%s' in blackboard." % target_entity_id_key)
+			var target_entity_instance_id = npc_ai.get_blackboard_snapshot().get_data(target_entity_id_key)
+			if target_entity_instance_id == null:
+				push_warning("ActionPrimitiveHandler: PICKUP_ITEM failed, no target entity instance ID found for key '%s' in blackboard." % target_entity_id_key)
 				return {"success": false, "outcome_data": {}}
 
-			success = _execute_pickup_item(npc_ai, target_entity_id)
+			success = _execute_pickup_item(npc_ai, target_entity_instance_id)
 
 		# TODO: Add other primitive types as they are defined in GOAPActionDefinition.gd
 		# Examples:
@@ -82,13 +82,13 @@ func execute_primitive(npc_ai: NPCAI, primitive_data: Dictionary) -> Dictionary:
 ##
 ## Parameters:
 ## - npc_ai: The NPCAI instance performing the action.
-## - target_item_id: The instance ID of the item to consume.
+## - target_item_instance_id: The instance ID of the item to consume.
 ## Returns:
 ## - Dictionary: Result including "success": bool and "outcome_data": Dictionary (containing "consumption_effects" if applicable).
-func _execute_consume_item(npc_ai: NPCAI, target_item_id: int) -> Dictionary:
-	var item_entity = _world_manager.get_entity(target_item_id)
+func _execute_consume_item(npc_ai: NPCAI, target_item_instance_id: int) -> Dictionary:
+	var item_entity: Node3D = _world_manager.get_entity(target_item_instance_id)
 	if not is_instance_valid(item_entity):
-		push_warning("ActionPrimitiveHandler: CONSUME_ITEM failed, target item ID '%d' is not valid in world." % target_item_id)
+		push_warning("ActionPrimitiveHandler: CONSUME_ITEM failed, target item ID '%d' is not valid in world." % target_item_instance_id)
 		return {"success": false, "outcome_data": {}}
 
 	var item_def: ItemDefinition = _entity_manager.get_item_definition(item_entity.entity_id_name)
@@ -96,10 +96,10 @@ func _execute_consume_item(npc_ai: NPCAI, target_item_id: int) -> Dictionary:
 		push_warning("ActionPrimitiveHandler: CONSUME_ITEM failed, item definition for '%s' not found." % item_entity.entity_id_name)
 		return {"success": false, "outcome_data": {}}
 
-	# Remove item from world
-	_world_manager.unregister_entity(target_item_id)
+	# Remove item from world by passing the Node3D instance
+	_world_manager.unregister_entity(item_entity)
 	item_entity.queue_free()
-	print("ActionPrimitiveHandler: Item %d consumed and removed from simulation." % target_item_id)
+	print("ActionPrimitiveHandler: Item %d consumed and removed from simulation." % target_item_instance_id)
 
 	# Return the consumption effects to be applied to the NPC's internal state
 	return {"success": true, "outcome_data": {"consumption_effects": item_def.consumption_effects}}
@@ -109,13 +109,13 @@ func _execute_consume_item(npc_ai: NPCAI, target_item_id: int) -> Dictionary:
 ##
 ## Parameters:
 ## - npc_ai: The NPCAI instance performing the action.
-## - target_entity_id: The instance ID of the item to pick up.
+## - target_entity_instance_id: The instance ID of the item to pick up.
 ## Returns:
 ## - bool: True if the item was successfully picked up, false otherwise.
-func _execute_pickup_item(npc_ai: NPCAI, target_entity_id: int) -> bool:
-	var item_entity = _world_manager.get_entity(target_entity_id)
+func _execute_pickup_item(npc_ai: NPCAI, target_entity_instance_id: int) -> bool:
+	var item_entity: Node3D = _world_manager.get_entity(target_entity_instance_id)
 	if not is_instance_valid(item_entity):
-		push_warning("ActionPrimitiveHandler: PICKUP_ITEM failed, target item ID '%d' is not valid in world." % target_entity_id)
+		push_warning("ActionPrimitiveHandler: PICKUP_ITEM failed, target item ID '%d' is not valid in world." % target_entity_instance_id)
 		return false
 
 	var item_def: ItemDefinition = _entity_manager.get_item_definition(item_entity.entity_id_name)
@@ -125,13 +125,13 @@ func _execute_pickup_item(npc_ai: NPCAI, target_entity_id: int) -> bool:
 
 	# Transfer ownership of the item to the NPC's inventory
 	# This involves removing it from the world and adding it to NPC's possessed_items
-	_world_manager.unregister_entity(target_entity_id)
+	_world_manager.unregister_entity(item_entity) # Pass the Node3D instance
 	# Item is not queue_free'd yet; it will be added to NPCAI's inventory
 	npc_ai.add_item_to_inventory(item_def.item_id, 1) # Assuming 1 quantity for now
 	item_entity.queue_free() # The visual representation is removed from world.
 
 	# Update NPC's blackboard or memory to reflect having the item (if needed by future planning)
 	# This should be handled by NPCAI based on the action's effects, not here.
-	print("ActionPrimitiveHandler: Item %d removed from world location. NPC %d picked up %s." % [target_entity_id, npc_ai.get_instance_id(), item_def.item_id])
+	print("ActionPrimitiveHandler: Item %d removed from world location. NPC %d picked up %s." % [target_entity_instance_id, npc_ai.get_instance_id(), item_def.item_id])
 
 	return true
