@@ -88,9 +88,10 @@ func _process_task(task_data: Dictionary):
 		return
 
 	# Step 2: Find a plan for the selected goal
-	# Retrieve all GOAP actions from EntityManager for the planner.
-	var all_goap_actions: Dictionary = _entity_manager.get_all_goap_actions()
-	var plan: Array = _goap_planner.find_plan(blackboard_snapshot, goal_definition.preconditions, all_goap_actions, _entity_manager)
+	# Retrieve all GOAP actions from EntityManager as an array of GOAPActionDefinition objects.
+	var all_goap_actions_dict: Dictionary = _entity_manager.get_all_goap_actions()
+	var all_goap_actions_array: Array[GOAPActionDefinition] = all_goap_actions_dict.values()
+	var plan: Array = _goap_planner.find_plan(blackboard_snapshot, goal_definition.preconditions, all_goap_actions_array, _entity_manager)
 
 	if plan.is_empty():
 		plan_failed.emit(npc_instance_id, selected_goal_id, "No plan found to achieve goal: %s" % selected_goal_id)

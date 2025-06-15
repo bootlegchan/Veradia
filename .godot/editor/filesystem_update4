@@ -8,3 +8,4 @@ res://features/npc_module/components/utility_evaluators/personality_trait_evalua
 res://systems/ai_worker_thread.gd
 res://systems/ai_manager.gd
 res://definitions/ai/goals/goal_eat_food.json
+res://features/npc_module/goap/goap_planner.gd
