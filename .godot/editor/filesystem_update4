@@ -9,3 +9,8 @@ res://systems/ai_worker_thread.gd
 res://systems/ai_manager.gd
 res://definitions/ai/goals/goal_eat_food.json
 res://features/npc_module/goap/goap_planner.gd
+res://definitions/base_definitions/item_definition.gd
+res://systems/action_primitive_handler.gd
+res://definitions/base_definitions/granular_need_definition.gd
+res://definitions/base_definitions/npc_entity_definition.gd
+res://features/npc_module/npc_ai.gd

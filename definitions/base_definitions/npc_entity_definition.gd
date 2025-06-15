@@ -1,42 +1,33 @@
-# NPCEntityDefinition.gd
+## npc_entity_definition.gd
+## Defines the blueprint for an Non-Player Character (NPC) entity.
+## This resource extends EntityDefinition with NPC-specific attributes
+## and initial states.
+class_name NPCEntityDefinition extends EntityDefinition
 
-# Defines the specific properties for an NPC entity, inheriting from the base
-# EntityDefinition. This resource holds all the initial, static data required
-# to spawn a new NPC into the simulation.
-class_name NPCEntityDefinition
-extends EntityDefinition
-
-# --- NPC-Specific Properties ---
-@export var initial_granular_needs: Dictionary = {}
-@export var initial_personality_traits: Dictionary = {}
+## The initial health/physiological level of the NPC when spawned (0.0-1.0).
+@export var initial_physiological_level: float = 1.0
+## The initial mood state of the NPC as a dictionary (e.g., {"Happy": 0.8, "Stressed": 0.2}).
+@export var initial_mood_state: Dictionary = {}
+## The initial skill levels of the NPC as a dictionary (e.g., {"Cooking": 5, "Social": 3}).
 @export var initial_skills: Dictionary = {}
-@export var home_entity_id: String = ""
+## The ID of the NPC's initial job, if any.
 @export var initial_job_id: String = ""
-
-# The maximum distance from which this NPC can visually perceive entities.
-@export var perception_range: float = 10.0
-
-
-# --- Static Factory Method ---
-
-## Creates and populates a new NPCEntityDefinition from a dictionary.
-static func from_json(data: Dictionary) -> NPCEntityDefinition:
-	var base_definition = EntityDefinition.from_json(data)
-	if not base_definition:
-		return null
-
-	var definition = NPCEntityDefinition.new()
-
-	definition.entity_id = base_definition.entity_id
-	definition.entity_name = base_definition.entity_name
-	definition.entity_type = base_definition.entity_type
-	definition.initial_tags = base_definition.initial_tags
-
-	definition.initial_granular_needs = data.get("initial_granular_needs", {})
-	definition.initial_personality_traits = data.get("initial_personality_traits", {})
-	definition.initial_skills = data.get("initial_skills", {})
-	definition.home_entity_id = data.get("home_entity_id", "")
-	definition.initial_job_id = data.get("initial_job_id", "")
-	definition.perception_range = data.get("perception_range", 10.0)
-
-	return definition
+## The initial items the NPC possesses in their inventory as a dictionary
+## (e.g., {"item_apple": 2, "item_money": 50}).
+@export var initial_inventory: Dictionary = {}
+## The initial amount of money the NPC has.
+@export var initial_money: float = 0.0
+## The initial personality trait values of the NPC as a dictionary, mapping trait_id to value (0.0-1.0).
+## Example: {"trait_gluttonous": 0.7, "trait_brave": 0.3}
+@export var initial_personality_traits: Dictionary = {}
+## An array of GOAPGoalDefinition IDs that the NPC will try to pursue from the start,
+## or which are considered inherent desires.
+@export var initial_ongoing_goal_ids: Array[String] = []
+## A pool of GOAPGoalDefinition IDs that this NPC type is capable of pursuing as long-term goals.
+@export var potential_ongoing_goal_ids: Array[String] = []
+## The maximum number of long-term goals an NPC can be actively pursuing simultaneously.
+@export var max_active_ongoing_goals: int = 1
+## An array of CognitiveBiasDefinition IDs that are initially active for this NPC.
+@export var initial_cognitive_biases: Array[String] = []
+## The entity ID of the NPC's initial home or primary residence.
+@export var home_entity_id: String = ""

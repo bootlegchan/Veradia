@@ -1,28 +1,21 @@
-# ItemDefinition.gd
+## item_definition.gd
+## Defines the properties for various items in the game world.
+## These resources are loaded by EntityManager.
+class_name ItemDefinition extends EntityDefinition
 
-# Defines the properties for an Item entity, inheriting from EntityDefinition.
-class_name ItemDefinition
-extends EntityDefinition
-
-# --- Item-Specific Properties ---
+## The category of the item (e.g., "Food", "Tool", "Currency").
+@export var item_category: String = ""
+## The base monetary value of the item.
 @export var base_value: float = 0.0
-@export var stackable: bool = false
+## True if multiple instances of this item can be stacked in inventory.
+@export var stackable: bool = true
+## True if owning or using this item is considered illegal.
 @export var is_illegal: bool = false
-
-# --- Static Factory Method ---
-static func from_json(data: Dictionary) -> ItemDefinition:
-	var base_definition = EntityDefinition.from_json(data)
-	if not base_definition:
-		return null
-
-	var definition = ItemDefinition.new()
-	definition.entity_id = base_definition.entity_id
-	definition.entity_name = base_definition.entity_name
-	definition.entity_type = base_definition.entity_type
-	definition.initial_tags = base_definition.initial_tags
-
-	definition.base_value = data.get("base_value", 0.0)
-	definition.stackable = data.get("stackable", false)
-	definition.is_illegal = data.get("is_illegal", false)
-	
-	return definition
+## A dictionary defining the effects on an NPC's granular needs upon consumption.
+## Keys are granular need IDs (e.g., "HUNGER", "THIRST"), values are the change in need level.
+## Example: {"HUNGER": -0.8, "THIRST": -0.1} would reduce hunger by 0.8 and thirst by 0.1.
+@export var consumption_effects: Dictionary = {}
+## True if this item is a natural resource that can regenerate over time.
+@export var is_renewable: bool = false
+## The time in minutes for a renewable item to regenerate at its source.
+@export var regeneration_time_minutes: float = 0.0
