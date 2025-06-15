@@ -279,7 +279,18 @@ func file_path_to_id(path: String) -> String:
 ## --- Public API for retrieving definitions ---
 
 func get_entity_definition(id: String) -> EntityDefinition:
-	return _entity_definitions.get(id)
+	# This generic getter should check all specialized dictionaries.
+	var entity_def = _npc_entity_definitions.get(id)
+	if entity_def: return entity_def
+
+	entity_def = _item_definitions.get(id)
+	if entity_def: return entity_def
+
+	# Fallback to the generic dictionary (though it's currently unused)
+	entity_def = _entity_definitions.get(id)
+	if entity_def: return entity_def
+	
+	return null
 
 func get_goap_goal(id: String) -> GOAPGoalDefinition:
 	return _goap_goals.get(id)
@@ -345,19 +356,14 @@ func get_cognitive_bias(id: String): # Placeholder until CognitiveBiasDefinition
 ## - Node3D: The spawned entity node, or null if spawning failed.
 func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3 = Vector3.ZERO, global_rotation: Vector3 = Vector3.ZERO, extra_data: Dictionary = {}) -> Node3D:
 	var entity_def: EntityDefinition = get_entity_definition(entity_id)
-	if not entity_def:
-		entity_def = get_npc_entity_definition(entity_id) # Check NPC definitions if not generic
-	if not entity_def:
-		entity_def = get_item_definition(entity_id) # Check Item definitions if not generic
-	# Add checks for other specific entity types here as they get separate definitions
 
 	if not entity_def:
-		push_error("EntityManager: Entity definition not found for ID: %s" % entity_id)
+		push_error("EntityManager: Entity definition not found for ID: '%s'" % entity_id)
 		return null
 
-	var scene_path = "res://scenes/%s/%s.tscn" % [entity_def.entity_type.to_lower(), entity_id.to_lower()]
-	if not ResourceLoader.exists(scene_path):
-		push_error("EntityManager: Scene file does not exist for entity '%s' at path: %s" % [entity_id, scene_path])
+	var scene_path = entity_def.scene_path
+	if scene_path.is_empty() or not ResourceLoader.exists(scene_path):
+		push_error("EntityManager: Scene path '%s' is invalid or not defined for entity '%s'." % [scene_path, entity_id])
 		return null
 
 	var packed_scene = ResourceLoader.load(scene_path)
@@ -375,9 +381,14 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 	parent_node.add_child(entity_node)
 
 	# Basic initialization based on EntityDefinition
-	entity_node.entity_id_name = entity_def.entity_id
-	entity_node.entity_name_display = entity_def.entity_name
-	entity_node.entity_type = entity_def.entity_type
+	# This assumes the root node of the scene has a script that extends a base entity script.
+	# Let's check for these properties before setting them.
+	if "entity_id_name" in entity_node:
+		entity_node.entity_id_name = entity_def.entity_id
+	if "entity_name_display" in entity_node:
+		entity_node.entity_name_display = entity_def.entity_name
+	if "entity_type" in entity_node:
+		entity_node.entity_type = entity_def.entity_type
 
 	# Initialize NPCAI component if it's an NPC
 	if entity_def is NPCEntityDefinition:

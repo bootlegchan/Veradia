@@ -18,3 +18,6 @@ res://systems/entity_manager.gd
 res://definitions/needs/need_hunger.json
 res://features/npc_module/components/npc_memory.gd
 res://systems/global_time_manager.gd
+res://definitions/base_definitions/entity_definition.gd
+res://definitions/npcs/npc_human_base.json
+res://definitions/items/item_apple.json

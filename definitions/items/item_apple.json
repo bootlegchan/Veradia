@@ -1,8 +1,16 @@
 {
-	"entity_id": "apple",
-	"entity_name": "Apple",
-	"entity_type": "Item",
-	"base_value": 5.0,
-	"stackable": true,
-	"initial_tags": ["Food"]
+  "entity_id": "item_apple",
+  "entity_name": "Apple",
+  "entity_type": "ITEM",
+  "scene_path": "res://scenes/items/apple.tscn",
+  "initial_tags": ["tag_food"],
+  "item_category": "Food",
+  "base_value": 5.0,
+  "stackable": true,
+  "is_illegal": false,
+  "consumption_effects": {
+	"HUNGER": -0.4
+  },
+  "is_renewable": false,
+  "regeneration_time_minutes": 0.0
 }
