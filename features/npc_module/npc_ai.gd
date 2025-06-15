@@ -3,6 +3,11 @@
 ## Manages all core internal states and orchestrates RefCounted AI components.
 class_name NPCAI extends Node
 
+## Preload component scripts to ensure their class names are recognized.
+const DailyScheduleRef = preload("res://features/npc_module/components/daily_schedule.gd")
+const NPCMemoryRef = preload("res://features/npc_module/components/npc_memory.gd")
+const NPCBlackboardRef = preload("res://features/npc_module/components/npc_blackboard.gd")
+
 ## Signals for observability and integration with global systems.
 signal died(npc_instance_id: int)
 signal goal_selected(npc_instance_id: int, goal_id: String)
@@ -50,12 +55,13 @@ var _mother_id: String = ""
 var _father_id: String = ""
 var _genetic_profile: Dictionary = {}
 ## Personality traits state, e.g., {"trait_gluttonous": 0.7}
-var _personality_state: Dictionary = {} # Added missing declaration
+var _personality_state: Dictionary = {}
 
 ## AI Components (RefCounted, owned by NPCAI)
-var _npc_blackboard: NPCBlackboard
-var _npc_memory: NPCMemory
-var _daily_schedule: DailySchedule # TODO: Implement DailySchedule
+var _npc_blackboard: NPCBlackboardRef
+var _npc_memory: NPCMemoryRef
+var _daily_schedule: DailyScheduleRef # Declared as type of preloaded ref
+
 var _current_goal_id: String = ""
 var _current_plan: Array = [] # Array of GOAPActionDefinition IDs
 var _current_action_index: int = -1
@@ -75,8 +81,11 @@ var _last_memory_tick_minutes: int = 0
 
 ## Called when the node enters the scene tree for the first time.
 func _ready():
-	_npc_blackboard = NPCBlackboard.new()
-	_npc_memory = NPCMemory.new() # TODO: Initialize NPCMemory with personality/bias influences
+	# Instantiate RefCounted components using their preloaded references
+	_npc_blackboard = NPCBlackboardRef.new()
+	# Pass initial personality traits and cognitive biases to NPCMemory constructor
+	_npc_memory = NPCMemoryRef.new(_personality_state, _active_cognitive_biases) 
+	_daily_schedule = DailyScheduleRef.new() # Instantiate DailySchedule (if it has no required constructor args for now)
 
 	_ai_manager.npc_plan_generated.connect(receive_plan)
 	_ai_manager.npc_plan_failed.connect(plan_failed)
@@ -102,7 +111,8 @@ func initialize(definition: NPCEntityDefinition):
 	_initialize_granular_needs()
 	_initialize_tags()
 	_initialize_cognitive_biases()
-	# TODO: Initialize other states like mood, relationships, etc.
+	# Re-initialize NPCMemory with correct data after personality/biases are loaded from definition
+	_npc_memory._init(_personality_state, _active_cognitive_biases) 
 
 	_ai_manager.register_npc_ai(self)
 
@@ -436,6 +446,7 @@ func _update_blackboard():
 	_npc_blackboard.set_data("money", _money)
 	_npc_blackboard.set_data("is_dead", _is_dead)
 	_npc_blackboard.set_data("current_job_id", _current_job_id)
+	_npc_blackboard.set_data("npc_instance_id", get_instance_id()) # Add instance ID to blackboard for debug
 
 	# Derived states for GOAP planning (e.g., is hunger satisfied?)
 	var hunger_satisfied = false

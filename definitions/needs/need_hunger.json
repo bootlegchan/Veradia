@@ -1,6 +1,9 @@
 {
-	"need_id": "HUNGER",
-	"base_decay_rate": 0.1,
-	"linked_maslow_level": "Physiological",
-	"importance_modifier": 1.5
+  "need_id": "HUNGER",
+  "need_name": "Hunger",
+  "linked_maslow_level": "Physiological",
+  "base_decay_rate": 0.05,
+  "max_value": 1.0,
+  "importance_modifier": 1.0,
+  "satisfaction_threshold": 0.2
 }
