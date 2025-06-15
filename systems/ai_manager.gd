@@ -206,15 +206,30 @@ func _on_plan_failed(worker_id: int, npc_instance_id: int, goal_id: String, reas
 	call_deferred("_process_plan_result", npc_instance_id, goal_id, [], false, reason)
 
 ## Callback for when an AI worker thread has selected a goal.
+## This is called from the worker thread, so we defer the actual processing.
 ##
 ## Parameters:
 ## - worker_id: The ID of the worker thread that selected the goal.
 ## - npc_instance_id: The instance ID of the NPC.
 ## - goal_id: The ID of the selected goal.
 func _on_goal_selected(worker_id: int, npc_instance_id: int, goal_id: String):
-	# Emit signal on main thread
+	call_deferred("_process_goal_selection", npc_instance_id, goal_id)
+
+## Processes the goal selection result on the main thread.
+##
+## Parameters:
+## - npc_instance_id: The instance ID of the NPC.
+## - goal_id: The ID of the selected goal.
+func _process_goal_selection(npc_instance_id: int, goal_id: String):
+	# This now runs safely on the main thread.
+	var npc_ai = _npc_ai_instances.get(npc_instance_id)
+	var npc_name = "ID %d" % npc_instance_id
+	if is_instance_valid(npc_ai):
+		npc_name = npc_ai.name
+
 	npc_goal_selected.emit(npc_instance_id, goal_id)
-	print("AIManager: NPC '%d' selected goal: '%s'" % [npc_instance_id, goal_id])
+	print("AIManager: NPC '%s' selected goal: '%s'" % [npc_name, goal_id])
+
 
 ## Processes the plan generation result (success or failure) on the main thread.
 ## This function is called via `call_deferred` to ensure thread safety.
@@ -229,13 +244,13 @@ func _process_plan_result(npc_instance_id: int, goal_id: String, plan: Array, su
 	var npc_ai: NPCAI = _npc_ai_instances.get(npc_instance_id)
 	if is_instance_valid(npc_ai):
 		if success:
-			npc_ai.receive_plan(npc_instance_id, goal_id, plan) # Pass npc_instance_id as expected by receive_plan
+			npc_ai.receive_plan(npc_instance_id, goal_id, plan)
 			npc_plan_generated.emit(npc_instance_id, goal_id, plan)
 			print("AIManager: Plan found for '%s':" % npc_ai.name)
 			for action_id in plan:
 				print("  - %s" % _entity_manager.get_goap_action(action_id).action_id) # Print action ID
 		else:
-			npc_ai.plan_failed(npc_instance_id, goal_id, reason) # Pass npc_instance_id as expected by plan_failed
+			npc_ai.plan_failed(npc_instance_id, goal_id, reason)
 			npc_plan_failed.emit(npc_instance_id, goal_id, reason)
 			print("AIManager: Failed to find a plan for '%s' to achieve goal '%s'. Reason: %s" % [npc_ai.name, goal_id, reason])
 	else:
