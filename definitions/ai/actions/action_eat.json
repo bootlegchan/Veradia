@@ -1,15 +1,17 @@
 {
-	"action_id": "EAT",
-	"cost": 1.0,
-	"target_criteria": {
-		"entity_type": "Item",
-		"tags": ["Food"]
-	},
-	"preconditions": {
-		"npc_has_item_$target_id": true
-	},
-	"effects": {
-		"npc_has_item_$target_id": false,
-		"state_npc_has_eaten": true
+  "action_id": "EAT",
+  "cost": 1.0,
+  "preconditions": {
+	"has_item_apple": true
+  },
+  "effects": {
+	"has_item_apple": false,
+	"hunger_satisfied": true
+  },
+  "primitive_operations": [
+	{
+	  "type": "CONSUME_ITEM",
+	  "item_id_key": "inventory_item_apple"
 	}
+  ]
 }

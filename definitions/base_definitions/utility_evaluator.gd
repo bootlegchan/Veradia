@@ -22,11 +22,12 @@ class_name UtilityEvaluator extends Resource
 ## This method calculates and returns a utility score based on the provided NPC state snapshot.
 ##
 ## Parameters:
-## - npc_blackboard_snapshot: A Dictionary containing a snapshot of the NPC's current state (from NPCBlackboard).
+## - _npc_blackboard_snapshot: A Dictionary containing a snapshot of the NPC's current state (from NPCBlackboard).
+##                           Prefixed with an underscore as it's not used in the base class, only in subclasses.
 ## Returns:
 ## - float: The calculated utility score from this evaluator, typically between 0.0 and 1.0,
 ##          which will then be scaled by the 'multiplier' property.
-func _evaluate(npc_blackboard_snapshot: Dictionary) -> float:
+func _evaluate(_npc_blackboard_snapshot: Dictionary) -> float:
 	push_error("UtilityEvaluator._evaluate() must be overridden by a concrete implementation.")
 	return 0.0
 

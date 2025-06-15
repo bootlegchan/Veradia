@@ -21,3 +21,4 @@ res://systems/global_time_manager.gd
 res://definitions/base_definitions/entity_definition.gd
 res://definitions/npcs/npc_human_base.json
 res://definitions/items/item_apple.json
+res://definitions/ai/actions/action_eat.json

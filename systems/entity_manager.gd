@@ -339,7 +339,7 @@ func get_all_personality_traits() -> Dictionary:
 func get_all_tag_definitions() -> Dictionary:
 	return _tag_definitions.duplicate()
 
-func get_cognitive_bias(id: String): # Placeholder until CognitiveBiasDefinition is implemented
+func get_cognitive_bias(_id: String): # Placeholder until CognitiveBiasDefinition is implemented
 	# return _cognitive_biases.get(id)
 	return null
 
