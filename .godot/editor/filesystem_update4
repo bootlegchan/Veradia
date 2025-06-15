@@ -22,3 +22,6 @@ res://definitions/base_definitions/entity_definition.gd
 res://definitions/npcs/npc_human_base.json
 res://definitions/items/item_apple.json
 res://definitions/ai/actions/action_eat.json
+res://definitions/ai/actions/action_pickup_item.json
+res://features/npc_module/components/daily_schedule.gd
+res://scenes/main.gd

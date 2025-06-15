@@ -70,7 +70,8 @@ var _is_planning: bool = false
 ## Global System References (Autoloads)
 @onready var _ai_manager: AIManager = get_node("/root/AISvc")
 @onready var _entity_manager: EntityManager = get_node("/root/EntitySvc")
-@onready var _world_manager: WorldManager = get_node("/root/WorldSvc")
+# _world_manager is not used directly by NPCAI; primitives use the service via ActionPrimitiveHandler.
+#@onready var _world_manager: WorldManager = get_node("/root/WorldSvc")
 @onready var _action_primitive_handler: ActionPrimitiveHandler = get_node("/root/ActionHandlerSvc")
 @onready var _time_manager: GlobalTimeManager = get_node("/root/TimeSvc")
 
