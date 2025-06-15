@@ -1,8 +1,24 @@
 {
-	"goal_id": "EatFood",
-	"preconditions": {
-		"state_npc_has_eaten": true
+  "goal_id": "EatFood",
+  "goal_name": "Eat Food to Satisfy Hunger",
+  "preconditions": {
+	"hunger_satisfied": true
+  },
+  "base_importance": 0.7,
+  "linked_maslow_need": "Physiological",
+  "is_long_term_goal": false,
+  "utility_evaluators": [
+	{
+	  "evaluator_type": "NeedLevel",
+	  "target_id": "HUNGER",
+	  "multiplier": 1.0,
+	  "invert_value": false
 	},
-	"base_importance": 0.5,
-	"linked_granular_need_type": "HUNGER"
+	{
+	  "evaluator_type": "TagPresence",
+	  "target_id": "tag_hungry",
+	  "multiplier": 0.5,
+	  "invert_value": false
+	}
+  ]
 }
