@@ -7,13 +7,23 @@ extends Node
 @onready var entity_manager: EntityManager = get_node("/root/EntitySvc")
 @onready var world_manager: WorldManager = get_node("/root/WorldSvc")
 
-# Scene references
-@onready var item_spawn_points_parent = $ItemSpawnPoints
-@onready var npc_spawn_points_parent = $NPCSpawnPoints
+# Scene node references will be assigned in _ready()
+var item_spawn_points_parent: Node3D
+var npc_spawn_points_parent: Node3D
 
 
 ## Called when the node enters the scene tree for the first time.
 func _ready():
+	# Assign scene node references and check for their existence
+	item_spawn_points_parent = get_node_or_null("ItemSpawnPoints")
+	npc_spawn_points_parent = get_node_or_null("NPCSpawnPoints")
+
+	if not npc_spawn_points_parent:
+		push_error("Main: 'NPCSpawnPoints' node not found as a child of Main. Cannot spawn NPC.")
+		return
+	if not item_spawn_points_parent:
+		push_error("Main: 'ItemSpawnPoints' node not found as a child of Main. Cannot spawn items.")
+
 	# Wait for global systems to be ready before starting simulation.
 	# This ensures all autoloads have completed their own _ready() functions.
 	await get_tree().process_frame
@@ -25,7 +35,7 @@ func _ready():
 func _spawn_npc():
 	var npc_spawn_points = npc_spawn_points_parent.get_children()
 	if npc_spawn_points.is_empty():
-		push_error("Main: No NPC spawn points found.")
+		push_error("Main: No NPC spawn points (Marker3D children) found under NPCSpawnPoints node.")
 		return
 
 	# For now, spawn one test NPC using its full, correct entity_id.
@@ -46,9 +56,12 @@ func _spawn_npc():
 
 ## Spawns initial items into the world at designated spawn points.
 func _spawn_world_items():
+	if not item_spawn_points_parent:
+		return # Error was already reported in _ready
+
 	var item_spawn_points = item_spawn_points_parent.get_children()
 	if item_spawn_points.is_empty():
-		push_warning("Main: No item spawn points found.")
+		push_warning("Main: No item spawn points (Marker3D children) found under ItemSpawnPoints node.")
 		return
 	
 	print("Main: Spawning world items...")
@@ -79,4 +92,4 @@ func _spawn_world_items():
 			else:
 				world_manager.register_entity(item_node)
 				# Remove spawn point to avoid spawning multiple items at the same spot
-				item_spawn_points.erase(spawn_point) 
+				item_spawn_points.erase(spawn_point)
