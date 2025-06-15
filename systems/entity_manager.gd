@@ -122,7 +122,7 @@ func _load_tres_resource_file(res_path: String, expected_class_name: String, tar
 	elif expected_class_name == "GranularNeedDefinition":
 		resource_id = (resource as GranularNeedDefinition).need_id
 	elif expected_class_name == "ItemDefinition":
-		resource_id = (resource as ItemDefinition).item_id
+		resource_id = (resource as ItemDefinition).entity_id
 	elif expected_class_name == "NPCEntityDefinition":
 		resource_id = (resource as NPCEntityDefinition).entity_id
 	elif expected_class_name == "PersonalityTraitDefinition":
@@ -195,7 +195,7 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 	elif target_class_name == "GranularNeedDefinition":
 		resource_id = (resource as GranularNeedDefinition).need_id
 	elif target_class_name == "ItemDefinition":
-		resource_id = (resource as ItemDefinition).item_id
+		resource_id = (resource as ItemDefinition).entity_id
 	elif target_class_name == "NPCEntityDefinition":
 		resource_id = (resource as NPCEntityDefinition).entity_id
 	elif target_class_name == "PersonalityTraitDefinition":
