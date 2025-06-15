@@ -376,9 +376,12 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 		push_error("EntityManager: Failed to instantiate entity node for '%s'." % entity_id)
 		return null
 
-	entity_node.global_position = global_position
-	entity_node.global_rotation = global_rotation
+	# Add the node to the scene tree BEFORE setting global transform properties.
 	parent_node.add_child(entity_node)
+	
+	# Now that the node is in the tree, we can safely set its global position and rotation.
+	entity_node.global_position = global_position
+	entity_node.global_rotation_degrees = global_rotation # Use degrees for intuitive inspector values
 
 	# Basic initialization based on EntityDefinition
 	# This assumes the root node of the scene has a script that extends a base entity script.
