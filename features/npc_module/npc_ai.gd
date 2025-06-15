@@ -49,6 +49,8 @@ var _incarceration_release_time: float = 0.0
 var _mother_id: String = ""
 var _father_id: String = ""
 var _genetic_profile: Dictionary = {}
+## Personality traits state, e.g., {"trait_gluttonous": 0.7}
+var _personality_state: Dictionary = {} # Added missing declaration
 
 ## AI Components (RefCounted, owned by NPCAI)
 var _npc_blackboard: NPCBlackboard
@@ -184,16 +186,23 @@ func _tick_granular_needs(current_total_minutes: int):
 		if new_value != current_value:
 			_granular_needs_state[need_id] = new_value
 			need_changed.emit(get_instance_id(), need_id, new_value)
+			print("DEBUG: NPCAI %d - Need '%s' changed to %f" % [get_instance_id(), need_id, new_value])
 
 			# Apply/remove associated tags based on need level
 			if need_id == "HUNGER": # Example for HUNGER, extend for other needs
 				var hungry_tag_id = "tag_hungry"
-				if new_value > need_def.satisfaction_threshold and not _active_tags.has(hungry_tag_id):
+				var hunger_satisfied_now = new_value <= need_def.satisfaction_threshold
+				var tag_was_active = _active_tags.has(hungry_tag_id)
+
+				if not hunger_satisfied_now and not tag_was_active: # Hunger increased above threshold, add tag
 					_active_tags[hungry_tag_id] = new_value # Strength can be need value
 					tag_changed.emit(get_instance_id(), hungry_tag_id, new_value)
-				elif new_value <= need_def.satisfaction_threshold and _active_tags.has(hungry_tag_id):
+					print("DEBUG: NPCAI %d - Tag '%s' activated with strength %f" % [get_instance_id(), hungry_tag_id, new_value])
+				elif hunger_satisfied_now and tag_was_active: # Hunger satisfied, remove tag
 					_active_tags.erase(hungry_tag_id)
 					tag_changed.emit(get_instance_id(), hungry_tag_id, 0.0) # Strength 0.0 means removed
+					print("DEBUG: NPCAI %d - Tag '%s' deactivated." % [get_instance_id(), hungry_tag_id])
+
 
 	_last_need_tick_minutes = current_total_minutes
 
@@ -247,12 +256,14 @@ func request_new_plan():
 	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
+	print("DEBUG: NPCAI %d - Requesting new plan." % get_instance_id())
 	_ai_manager.request_plan_for_npc(get_instance_id())
 
 ## Receives a new plan from the AIManager.
 ## This method is called via `call_deferred` from AIManager on the main thread.
 ##
 ## Parameters:
+## - npc_instance_id: The instance ID of the NPC for which the plan was generated.
 ## - goal_id: The ID of the goal the plan is for.
 ## - plan: An array of GOAPActionDefinition IDs representing the plan.
 func receive_plan(npc_instance_id: int, goal_id: String, plan: Array):
@@ -263,12 +274,13 @@ func receive_plan(npc_instance_id: int, goal_id: String, plan: Array):
 	_current_goal_id = goal_id
 	_current_plan = plan
 	_current_action_index = 0
-	print("NPC '%s' received plan for goal '%s'." % [name, _current_goal_id])
+	print("NPC '%s' received plan for goal '%s'. Plan length: %d" % [name, _current_goal_id, _current_plan.size()])
 
 ## Handles the failure of plan generation.
 ## This method is called via `call_deferred` from AIManager on the main thread.
 ##
 ## Parameters:
+## - npc_instance_id: The instance ID of the NPC for which planning failed.
 ## - goal_id: The ID of the goal that failed to plan for.
 ## - reason: The reason for the planning failure.
 func plan_failed(npc_instance_id: int, goal_id: String, reason: String):
@@ -315,9 +327,13 @@ func _execute_current_action():
 	if primitive_success:
 		_apply_action_effects(action_def, combined_outcome_data)
 		_current_action_index += 1
-		# Check if goal is satisfied after action (fast path if goal is met mid-plan)
+		# After applying effects and before moving to the next action,
+		# update the blackboard and re-check if the overall goal is satisfied.
+		# This handles cases where a goal might be achieved mid-plan.
+		_update_blackboard()
 		var goal_def = _entity_manager.get_goap_goal(_current_goal_id)
 		if goal_def and _npc_blackboard.check_state(goal_def.preconditions):
+			print("NPC '%s': Goal '%s' satisfied mid-plan." % [name, _current_goal_id])
 			_finish_current_goal()
 	else:
 		_apply_action_failure_effects(action_def)
@@ -358,7 +374,7 @@ func _apply_generic_effect(key: String, value):
 			# This is a GOAP state flag, needs to map to actual granular need adjustment
 			if value == true:
 				_adjust_granular_need("HUNGER", -_granular_needs_state.get("HUNGER", 0.0)) # Set hunger to 0
-				print("%s is no longer hungry." % name)
+				print("NPC '%s' is no longer hungry." % name)
 		"has_item_apple": # Example: for removing item from inventory when consumed
 			if value == false: # Assuming 'has_item_X: false' means item was consumed/removed
 				remove_item_from_inventory("item_apple", 1)
@@ -392,7 +408,7 @@ func _apply_action_failure_effects(action_def: GOAPActionDefinition):
 
 ## Called when the current goal is successfully completed.
 func _finish_current_goal():
-	print("Human finished plan to achieve goal: %s" % _current_goal_id)
+	print("NPC '%s' finished plan to achieve goal: %s" % [name, _current_goal_id])
 	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
@@ -427,6 +443,7 @@ func _update_blackboard():
 	if hunger_def and _granular_needs_state.has("HUNGER"):
 		hunger_satisfied = _granular_needs_state["HUNGER"] <= hunger_def.satisfaction_threshold
 	_npc_blackboard.set_data("hunger_satisfied", hunger_satisfied)
+	print("DEBUG: NPCAI %d - Blackboard updated. hunger_satisfied: %s (from hunger %f <= threshold %f)" % [get_instance_id(), hunger_satisfied, _granular_needs_state.get("HUNGER", -1.0), hunger_def.satisfaction_threshold])
 	
 	# Example: check if NPC has a specific item
 	_npc_blackboard.set_data("has_item_apple", _possessed_items.has("item_apple") and _possessed_items["item_apple"] > 0)
@@ -492,10 +509,13 @@ func _adjust_granular_need(need_id: String, adjustment: float):
 		# Re-evaluate tags immediately after adjustment (e.g., tag_hungry)
 		if need_id == "HUNGER":
 			var hungry_tag_id = "tag_hungry"
-			if new_value > need_def.satisfaction_threshold and not _active_tags.has(hungry_tag_id):
+			var hunger_satisfied_now = new_value <= need_def.satisfaction_threshold
+			var tag_was_active = _active_tags.has(hungry_tag_id)
+
+			if not hunger_satisfied_now and not tag_was_active:
 				_active_tags[hungry_tag_id] = new_value
 				tag_changed.emit(get_instance_id(), hungry_tag_id, new_value)
-			elif new_value <= need_def.satisfaction_threshold and _active_tags.has(hungry_tag_id):
+			elif hunger_satisfied_now and tag_was_active:
 				_active_tags.erase(hungry_tag_id)
 				tag_changed.emit(get_instance_id(), hungry_tag_id, 0.0)
 

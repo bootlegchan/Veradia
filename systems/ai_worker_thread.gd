@@ -117,9 +117,19 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 	for goal_id_str in all_goal_definitions:
 		var goal_def: GOAPGoalDefinition = all_goal_definitions[goal_id_str]
 
+		var goal_preconditions_met_in_snapshot = _goap_planner._check_preconditions_met(npc_blackboard_snapshot, goal_def.preconditions)
+
+		# Debugging: Print current state of relevant blackboard property for EatFood
+		if goal_def.goal_id == "EatFood":
+			print("DEBUG: AIWorkerThread - Evaluating EatFood Goal.")
+			print("DEBUG:   Snapshot hunger_satisfied: %s" % npc_blackboard_snapshot.get("hunger_satisfied"))
+			print("DEBUG:   Goal preconditions hunger_satisfied: %s" % goal_def.preconditions.get("hunger_satisfied"))
+			print("DEBUG:   Goal preconditions met in snapshot: %s" % goal_preconditions_met_in_snapshot)
+
 		# CRITICAL: If the goal's preconditions are already met, this goal is satisfied
 		# and should NOT be pursued. Skip it entirely for selection.
-		if _goap_planner._check_preconditions_met(npc_blackboard_snapshot, goal_def.preconditions):
+		if goal_preconditions_met_in_snapshot:
+			print("DEBUG: Skipping goal '%s' because preconditions already met." % goal_def.goal_id)
 			continue # Skip this goal, it's already achieved
 
 		var current_utility: float = _calculate_goal_utility(goal_def, npc_blackboard_snapshot)
