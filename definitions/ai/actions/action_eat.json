@@ -1,0 +1,15 @@
+{
+	"action_id": "EAT",
+	"cost": 1.0,
+	"target_criteria": {
+		"entity_type": "Item",
+		"tags": ["Food"]
+	},
+	"preconditions": {
+		"npc_has_item_$target_id": true
+	},
+	"effects": {
+		"npc_has_item_$target_id": false,
+		"state_npc_has_eaten": true
+	}
+}

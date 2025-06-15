@@ -1,0 +1,12 @@
+{
+	
+		
+	"tag_id": "TAG_HUNGRY",
+	"tag_name": "Hungry",
+	"effect_type": "ELASTIC",
+	"influence_on_goal_utility": {
+		"EatFood": {
+			"utility_multiplier": 2.0
+		}
+	}
+}

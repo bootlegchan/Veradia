@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://cn256hg2ls6i5"]
+
+[ext_resource type="Script" uid="uid://cpvqsu6j7uo5d" path="res://features/npc_module/npc.gd" id="1_ivh6b"]
+[ext_resource type="Script" uid="uid://cys6121qeuxut" path="res://features/npc_module/npc_ai.gd" id="2_m5fb5"]
+
+[node name="Npc" type="Node3D"]
+script = ExtResource("1_ivh6b")
+
+[node name="AI" type="Node" parent="."]
+script = ExtResource("2_m5fb5")

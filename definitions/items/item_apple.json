@@ -1,0 +1,8 @@
+{
+	"entity_id": "apple",
+	"entity_name": "Apple",
+	"entity_type": "Item",
+	"base_value": 5.0,
+	"stackable": true,
+	"initial_tags": ["Food"]
+}

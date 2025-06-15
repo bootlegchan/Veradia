@@ -1,0 +1,14 @@
+{
+	"action_id": "PickupItem",
+	"cost": 1.0,
+	"target_criteria": {
+		"entity_type": "Item"
+	},
+	"preconditions": {
+		"location_npc": "$target_location_id"
+	},
+	"effects": {
+		"npc_has_item_$target_id": true,
+		"location_$target_id": null
+	}
+}

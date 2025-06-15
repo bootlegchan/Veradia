@@ -1,0 +1,16 @@
+{
+	"entity_id": "human_base",
+	"entity_name": "Human",
+	"entity_type": "NPC",
+	"initial_granular_needs": {
+		"HUNGER": 0.85
+	},
+	"initial_personality_traits": {
+		"GLUTTONOUS": 0.5
+	},
+	"initial_skills": {},
+	"home_entity_id": "house_generic_1",
+	"initial_job_id": "",
+	"initial_tags": [],
+	"perception_range": 20.0
+}

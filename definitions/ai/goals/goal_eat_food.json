@@ -1,0 +1,8 @@
+{
+	"goal_id": "EatFood",
+	"preconditions": {
+		"state_npc_has_eaten": true
+	},
+	"base_importance": 0.5,
+	"linked_granular_need_type": "HUNGER"
+}

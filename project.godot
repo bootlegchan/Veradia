@@ -1,0 +1,25 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Veridia"
+run/main_scene="uid://lknjxv6kphj3"
+config/features=PackedStringArray("4.4", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+AISvc="*res://systems/ai_manager.gd"
+EntitySvc="*res://systems/entity_manager.gd"
+WorldSvc="*res://systems/world_manager.gd"
+TimeSvc="*res://systems/global_time_manager.gd"
+PerceptionSvc="*res://systems/perception_manager.gd"
+ActionHandlerSvc="*res://systems/action_primitive_handler.gd"

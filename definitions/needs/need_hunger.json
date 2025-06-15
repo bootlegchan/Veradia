@@ -1,0 +1,6 @@
+{
+	"need_id": "HUNGER",
+	"base_decay_rate": 0.1,
+	"linked_maslow_level": "Physiological",
+	"importance_modifier": 1.5
+}
