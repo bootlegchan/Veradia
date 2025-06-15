@@ -14,7 +14,10 @@ var _current_season: String = "Spring" # e.g., "Spring", "Summer", "Autumn", "Wi
 
 @export var _minutes_per_real_second: float = 1.0 # How many game minutes pass per real-world second
 
-var _last_emitted_total_minutes: int = 0
+## Accumulator to handle fractional minutes between frames.
+var _time_accumulator: float = 0.0
+
+var _last_emitted_total_minutes: int = -1 # Initialize to -1 to guarantee the first tick is processed
 
 ## Called when the node enters the scene tree for the first time.
 func _ready():
@@ -25,11 +28,16 @@ func _ready():
 
 ## Called every frame to advance game time.
 func _process(delta: float):
-	var old_total_minutes = _current_total_minutes
-	_current_total_minutes += int(_minutes_per_real_second * delta)
+	# Add the fraction of game minutes that passed this frame to the accumulator.
+	_time_accumulator += _minutes_per_real_second * delta
 
-	# Only update hour, day, season if total minutes actually changed
-	if _current_total_minutes != old_total_minutes:
+	# If the accumulator has reached at least one full minute, update the total minutes.
+	if _time_accumulator >= 1.0:
+		var minutes_to_add = floori(_time_accumulator)
+		_current_total_minutes += minutes_to_add
+		_time_accumulator -= minutes_to_add # Keep the remainder for the next frame
+
+		# Update derived time values (hour, day, season) based on the new total minutes.
 		_current_game_hour = (_current_total_minutes / 60) % 24
 		_current_game_day = (_current_total_minutes / (60 * 24)) + 1
 
