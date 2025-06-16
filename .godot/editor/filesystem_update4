@@ -5,3 +5,4 @@ res://features/npc_module/npc_ai.gd
 res://scenes/main.tscn
 res://scenes/items/fridge.tscn
 res://features/npc_module/goap/goap_planner.gd
+res://systems/action_primitive_handler.gd

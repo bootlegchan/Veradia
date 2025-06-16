@@ -78,7 +78,9 @@ func execute_primitive(npc_ai: NPCAI, primitive_data: Dictionary) -> Dictionary:
 
 		"IDLE":
 			var duration_seconds = primitive_data.get("duration_seconds", 5.0)
-			success = _execute_idle(npc_ai, duration_seconds)
+			var idle_result = _execute_idle(npc_ai, duration_seconds)
+			success = idle_result["success"]
+			outcome_data = idle_result["outcome_data"]
 
 		_:# Default case for unhandled primitives
 			push_warning("ActionPrimitiveHandler: Unknown primitive type '%s'." % primitive_type)
@@ -116,9 +118,9 @@ func _execute_pickup_item(npc_ai: NPCAI, target_entity_instance_id: int) -> bool
 		return false
 
 	_world_manager.unregister_entity(item_entity)
-	npc_ai.add_item_to_inventory(item_def.entity_id, 1)
+	npc_ai.add_item_to_inventory(item_def.id, 1)
 	item_entity.queue_free()
-	print("ActionPrimitiveHandler: Item %d removed from world location. NPC %d picked up %s." % [target_entity_instance_id, npc_ai.get_instance_id(), item_def.entity_id])
+	print("ActionPrimitiveHandler: Item %d removed from world location. NPC %d picked up %s." % [target_entity_instance_id, npc_ai.get_instance_id(), item_def.id])
 	return true
 
 ## Moves the NPC to a random location within a specified radius.
@@ -140,6 +142,7 @@ func _execute_move_to_location(npc_ai: NPCAI, target_instance_id: int) -> bool:
 	return true
 
 ## Makes the NPC wait for a specified duration.
-func _execute_idle(npc_ai: NPCAI, duration_seconds: float) -> bool:
+func _execute_idle(npc_ai: NPCAI, duration_seconds: float) -> Dictionary:
 	print("ActionPrimitiveHandler: NPC '%s' is relaxing for %.1f seconds." % [npc_ai.name, duration_seconds])
-	return true
+	var outcome_data = {"action_duration": duration_seconds}
+	return {"success": true, "outcome_data": outcome_data}
