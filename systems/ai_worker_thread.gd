@@ -8,6 +8,9 @@ signal plan_failed(npc_instance_id: int, goal_id: String, reason: String)
 signal goal_selected(npc_instance_id: int, goal_id: String)
 signal processing_complete(worker_id: int) # Signaled when a task is finished, making the worker available.
 
+## A large utility bonus to ensure the scheduled goal is prioritized.
+const SCHEDULED_GOAL_BONUS = 100.0
+
 ## A unique identifier for this worker thread.
 var _worker_id: int = -1
 ## Reference to the EntityManager singleton for accessing definition resources.
@@ -72,12 +75,10 @@ func _process_task(task_data: Dictionary):
 	var npc_instance_id: int = task_data["npc_instance_id"]
 	var blackboard_snapshot: Dictionary = task_data["blackboard_snapshot"]
 	var ongoing_goals: Array[String] = task_data["ongoing_goals"]
-
-	# DEBUG: Print the full blackboard snapshot received by the worker
-	print("DEBUG: AIWorkerThread %d - Received snapshot for NPC %d: %s" % [_worker_id, npc_instance_id, JSON.stringify(blackboard_snapshot, "  ")])
+	var scheduled_goal_id: String = task_data.get("scheduled_goal_id", "")
 
 	# Step 1: Select the highest utility goal
-	var selected_goal_id: String = _select_highest_utility_goal(blackboard_snapshot, ongoing_goals)
+	var selected_goal_id: String = _select_highest_utility_goal(blackboard_snapshot, ongoing_goals, scheduled_goal_id)
 
 	if selected_goal_id.is_empty():
 		plan_failed.emit(npc_instance_id, "", "No suitable goal found.")
@@ -90,12 +91,7 @@ func _process_task(task_data: Dictionary):
 		plan_failed.emit(npc_instance_id, selected_goal_id, "Goal definition not found for ID: %s" % selected_goal_id)
 		return
 
-	# Step 2: Find a plan for the selected goal
-	# Retrieve all GOAP actions from EntityManager as a dictionary.
-	# The GOAPPlanner expects a dictionary for efficient action lookup.
 	var all_goap_actions_dict: Dictionary = _entity_manager.get_all_goap_actions()
-	# Pass the dictionary directly to find_plan.
-	# No need to pass EntityManager or NPCMemory as the planner operates on the provided snapshot and actions.
 	var plan: Array = _goap_planner.find_plan(blackboard_snapshot, goal_definition.preconditions, all_goap_actions_dict)
 
 	if plan.is_empty():
@@ -108,10 +104,11 @@ func _process_task(task_data: Dictionary):
 ##
 ## Parameters:
 ## - npc_blackboard_snapshot: A snapshot of the NPC's current internal state.
-## - ongoing_goals: An array of IDs of goals the NPC is currently pursuing or has set as long-term.
+## - ongoing_goals: An array of IDs of goals the NPC is currently pursuing.
+## - scheduled_goal_id: The ID of the goal currently dictated by the NPC's schedule.
 ## Returns:
 ## - String: The ID of the selected goal, or an empty string if no suitable goal is found.
-func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_goals: Array[String]) -> String:
+func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_goals: Array[String], scheduled_goal_id: String) -> String:
 	var best_goal_id: String = ""
 	var highest_utility: float = -INF # Initialize with negative infinity
 
@@ -120,38 +117,21 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 	for goal_id_str in all_goal_definitions:
 		var goal_def: GOAPGoalDefinition = all_goal_definitions[goal_id_str]
 
-		var goal_preconditions_met_in_snapshot = _goap_planner._check_preconditions_met(npc_blackboard_snapshot, goal_def.preconditions)
+		if _goap_planner._check_preconditions_met(npc_blackboard_snapshot, goal_def.preconditions):
+			continue 
 
-		# Debugging: Print current state of relevant blackboard property for EatFood
-		if goal_def.goal_id == "EatFood":
-			print("DEBUG: AIWorkerThread %d - Evaluating EatFood Goal. For NPC %d" % [_worker_id, npc_blackboard_snapshot.get("npc_instance_id", -1)])
-			print("DEBUG:   Snapshot hunger_satisfied: %s" % npc_blackboard_snapshot.get("hunger_satisfied"))
-			print("DEBUG:   Goal preconditions hunger_satisfied: %s" % goal_def.preconditions.get("hunger_satisfied"))
-			print("DEBUG:   Goal preconditions met in snapshot: %s" % goal_preconditions_met_in_snapshot)
+		var current_utility: float = _calculate_goal_utility(goal_def, npc_blackboard_snapshot, scheduled_goal_id)
 
-		# CRITICAL: If the goal's preconditions are already met, this goal is satisfied
-		# and should NOT be pursued. Skip it entirely for selection.
-		if goal_preconditions_met_in_snapshot:
-			print("DEBUG: AIWorkerThread %d - Skipping goal '%s' because preconditions already met for NPC %d." % [_worker_id, goal_def.goal_id, npc_blackboard_snapshot.get("npc_instance_id", -1)])
-			continue # Skip this goal, it's already achieved
-
-		var current_utility: float = _calculate_goal_utility(goal_def, npc_blackboard_snapshot)
-
-		# Apply influence from ongoing goals
 		for ongoing_goal_id in ongoing_goals:
 			var ongoing_goal_def: GOAPGoalDefinition = _entity_manager.get_goap_goal(ongoing_goal_id)
 			if ongoing_goal_def and ongoing_goal_def.influence_on_other_goals.has(goal_def.goal_id):
 				current_utility += ongoing_goal_def.influence_on_other_goals[goal_def.goal_id]
 
-		# Apply personality trait bonus
 		if npc_blackboard_snapshot.has("personality_state"):
 			for trait_id in goal_def.relevant_personality_traits:
 				if npc_blackboard_snapshot["personality_state"].has(trait_id) and \
-				npc_blackboard_snapshot["personality_state"][trait_id] > 0.0: # Check if trait is present
+				npc_blackboard_snapshot["personality_state"][trait_id] > 0.0:
 					current_utility += goal_def.trait_pursuit_bonus_multiplier
-
-		# Debugging utility values (optional)
-		#print("Goal '%s' utility: %f" % [goal_def.goal_id, current_utility])
 
 		if current_utility > highest_utility:
 			highest_utility = current_utility
@@ -160,15 +140,19 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 	return best_goal_id
 
 ## Calculates the total utility for a given GOAPGoalDefinition.
-## This method iterates through all associated UtilityEvaluators and sums their contributions.
 ##
 ## Parameters:
 ## - goal_definition: The GOAPGoalDefinition to evaluate.
 ## - npc_blackboard_snapshot: The current state of the NPC as a snapshot.
+## - scheduled_goal_id: The ID of the currently scheduled goal, if any.
 ## Returns:
 ## - float: The total calculated utility for the goal.
-func _calculate_goal_utility(goal_definition: GOAPGoalDefinition, npc_blackboard_snapshot: Dictionary) -> float:
+func _calculate_goal_utility(goal_definition: GOAPGoalDefinition, npc_blackboard_snapshot: Dictionary, scheduled_goal_id: String) -> float:
 	var total_utility: float = goal_definition.base_importance
+
+	# Apply a large bonus if this goal matches the current schedule.
+	if not scheduled_goal_id.is_empty() and goal_definition.goal_id == scheduled_goal_id:
+		total_utility += SCHEDULED_GOAL_BONUS
 
 	# Evaluate each UtilityEvaluator defined for this goal
 	for evaluator_res in goal_definition.utility_evaluators:
@@ -181,16 +165,13 @@ func _calculate_goal_utility(goal_definition: GOAPGoalDefinition, npc_blackboard
 	if npc_blackboard_snapshot.has("active_cognitive_biases"):
 		var active_biases: Dictionary = npc_blackboard_snapshot["active_cognitive_biases"]
 		for bias_id in active_biases:
-			# NOTE: This assumes CognitiveBiasDefinition exists and can be retrieved by EntityManager
-			# and has an 'influence_on_utility_evaluation' property that's a dictionary mapping goal_ids to multipliers.
 			var bias_def = _entity_manager.get_cognitive_bias(bias_id)
-			if bias_def and bias_def.has_method("get_influence_on_utility_evaluation"): # Defensive check
+			if bias_def and bias_def.has_method("get_influence_on_utility_evaluation"):
 				var influence_map = bias_def.get_influence_on_utility_evaluation()
 				if influence_map.has(goal_definition.goal_id):
-					total_utility *= (1.0 + influence_map[goal_definition.goal_id]) # Apply as a multiplier
-				elif influence_map.has("default"): # Apply a default influence if specific not found
+					total_utility *= (1.0 + influence_map[goal_definition.goal_id])
+				elif influence_map.has("default"):
 					total_utility *= (1.0 + influence_map["default"])
-
 
 	return total_utility
 

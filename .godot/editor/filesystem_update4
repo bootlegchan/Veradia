@@ -10,3 +10,4 @@ res://definitions/base_definitions/schedule_entry.gd
 res://definitions/base_definitions/npc_entity_definition.gd
 res://features/npc_module/components/daily_schedule.gd
 res://systems/ai_manager.gd
+res://systems/ai_worker_thread.gd
