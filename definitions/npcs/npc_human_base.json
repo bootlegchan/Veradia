@@ -13,9 +13,12 @@
   "initial_personality_traits": {
 	"trait_gluttonous": 0.5
   },
+  "schedule_entries": [
+	"human_base_home_schedule.json"
+  ],
   "initial_ongoing_goal_ids": [],
   "potential_ongoing_goal_ids": [],
   "max_active_ongoing_goals": 1,
   "initial_cognitive_biases": [],
-  "home_entity_id": ""
+  "home_entity_id": "item_house"
 }

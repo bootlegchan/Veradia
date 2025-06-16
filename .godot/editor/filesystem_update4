@@ -15,3 +15,6 @@ res://definitions/ai/goals/goal_go_to_location.json
 res://definitions/ai/actions/action_move_to_location.json
 res://definitions/items/item_house.json
 res://systems/entity_manager.gd
+res://definitions/npcs/schedules/human_base_home_schedule.json
+res://definitions/npcs/npc_human_base.json
+res://scenes/main.gd

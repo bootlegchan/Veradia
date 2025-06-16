@@ -10,6 +10,7 @@ extends Node
 # Scene node references will be assigned in _ready()
 var item_spawn_points_parent: Node3D
 var npc_spawn_points_parent: Node3D
+var building_spawn_points_parent: Node3D
 
 
 ## Called when the node enters the scene tree for the first time.
@@ -17,16 +18,19 @@ func _ready():
 	# Assign scene node references and check for their existence
 	item_spawn_points_parent = get_node_or_null("ItemSpawnPoints")
 	npc_spawn_points_parent = get_node_or_null("NPCSpawnPoints")
+	building_spawn_points_parent = get_node_or_null("BuildingSpawnPoints")
 
 	if not npc_spawn_points_parent:
 		push_error("Main: 'NPCSpawnPoints' node not found as a child of Main. Cannot spawn NPC.")
 		return
 	if not item_spawn_points_parent:
 		push_error("Main: 'ItemSpawnPoints' node not found as a child of Main. Cannot spawn items.")
+	if not building_spawn_points_parent:
+		push_error("Main: 'BuildingSpawnPoints' node not found as a child of Main. Cannot spawn buildings.")
 
 	# Wait for global systems to be ready before starting simulation.
-	# This ensures all autoloads have completed their own _ready() functions.
 	await get_tree().process_frame
+	_spawn_buildings()
 	_spawn_npc()
 	_spawn_world_items()
 	print("\n--- Simulation Starting ---")
@@ -52,6 +56,27 @@ func _spawn_npc():
 	else:
 		world_manager.register_entity(npc_node)
 		print("Main: Spawning test NPC...")
+
+## Spawns initial buildings into the world.
+func _spawn_buildings():
+	var building_spawn_points = building_spawn_points_parent.get_children()
+	if building_spawn_points.is_empty():
+		push_error("Main: No building spawn points found.")
+		return
+
+	var house_def_id = "item_house"
+	var house_def = entity_manager.get_item_definition(house_def_id)
+	if not house_def:
+		push_error("Main: Failed to get '%s' definition. Cannot spawn house." % house_def_id)
+		return
+	
+	var spawn_point = building_spawn_points[0]
+	var house_node = entity_manager.spawn_entity(house_def.entity_id, self, spawn_point.global_position)
+	if not house_node:
+		push_error("Main: Failed to spawn house.")
+	else:
+		world_manager.register_entity(house_node)
+		print("Main: Spawning house...")
 
 
 ## Spawns initial items into the world at designated spawn points.

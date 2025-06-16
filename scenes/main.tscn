@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://lknjxv6kphj3"]
+[gd_scene load_steps=2 format=3 uid="uid://d36l88x703n4k"]
 
-[ext_resource type="Script" uid="uid://dh1vdtd0heq65" path="res://scenes/main.gd" id="1_4u35l"]
+[ext_resource type="Script" path="res://scenes/main.gd" id="1_4u35l"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_4u35l")
@@ -20,3 +20,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
 
 [node name="Marker3D3" type="Marker3D" parent="ItemSpawnPoints"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="BuildingSpawnPoints" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 10)
+
+[node name="Marker3D" type="Marker3D" parent="BuildingSpawnPoints"]
