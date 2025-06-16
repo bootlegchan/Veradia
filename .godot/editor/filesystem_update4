@@ -4,3 +4,4 @@ res://systems/ai_worker_thread.gd
 res://features/npc_module/npc_ai.gd
 res://scenes/main.tscn
 res://scenes/items/fridge.tscn
+res://features/npc_module/goap/goap_planner.gd
