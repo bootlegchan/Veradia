@@ -1,5 +1,5 @@
 {
-  "entity_id": "item_apple",
+  "id": "item_apple",
   "entity_name": "Apple",
   "entity_type": "ITEM",
   "scene_path": "res://scenes/items/apple.tscn",

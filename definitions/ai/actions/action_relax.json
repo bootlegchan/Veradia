@@ -1,5 +1,5 @@
 {
-  "action_id": "Relax",
+  "id": "Relax",
   "cost": 2.0,
   "preconditions": {},
   "effects": {

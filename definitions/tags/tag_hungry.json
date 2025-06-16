@@ -1,5 +1,5 @@
 {
-  "tag_id": "tag_hungry",
+  "id": "tag_hungry",
   "tag_name": "Hungry",
   "type": "STATE",
   "effect_type": "TEMPORARY"

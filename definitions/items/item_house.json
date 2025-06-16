@@ -1,5 +1,5 @@
 {
-  "entity_id": "item_house",
+  "id": "item_house",
   "entity_name": "House",
   "entity_type": "BUILDING",
   "scene_path": "res://scenes/items/fridge.tscn",

@@ -1,5 +1,5 @@
 {
-  "goal_id": "GoToLocation",
+  "id": "GoToLocation",
   "goal_name": "Go To a Specific Location",
   "preconditions": {
 	"at_location": true

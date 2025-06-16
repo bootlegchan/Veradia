@@ -1,4 +1,5 @@
 {
+  "id": "human_base_home_schedule",
   "start_hour": 22,
   "end_hour": 7,
   "associated_goal_id": "GoToLocation",

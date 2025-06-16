@@ -1,4 +1,7 @@
 {
-	"trait_id": "GLUTTONOUS",
-	"trait_name": "Gluttonous"
-} 
+  "id": "trait_gluttonous",
+  "trait_name": "Gluttonous",
+  "influence_multipliers": {
+	"hunger_decay_rate": 1.5
+  }
+}

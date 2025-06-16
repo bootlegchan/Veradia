@@ -1,5 +1,5 @@
 {
-  "goal_id": "Relax",
+  "id": "Relax",
   "goal_name": "Relax and Rest",
   "preconditions": {
 	"is_relaxing": true

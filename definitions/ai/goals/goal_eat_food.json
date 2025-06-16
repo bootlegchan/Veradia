@@ -1,5 +1,5 @@
 {
-  "goal_id": "EatFood",
+  "id": "EatFood",
   "goal_name": "Eat Food to Satisfy Hunger",
   "preconditions": {
 	"hunger_satisfied": true

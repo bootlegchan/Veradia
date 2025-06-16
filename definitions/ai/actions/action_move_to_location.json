@@ -1,5 +1,5 @@
 {
-  "action_id": "MoveToLocation",
+  "id": "MoveToLocation",
   "cost": 1.0,
   "preconditions": {},
   "effects": {

@@ -1,5 +1,5 @@
 {
-  "entity_id": "npc_human_base",
+  "id": "npc_human_base",
   "entity_name": "Human",
   "entity_type": "NPC",
   "scene_path": "res://scenes/npcs/npc.tscn",

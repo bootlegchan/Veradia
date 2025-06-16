@@ -1,5 +1,5 @@
 {
-  "action_id": "EAT",
+  "id": "EAT",
   "cost": 1.0,
   "preconditions": {
 	"has_item_apple": true

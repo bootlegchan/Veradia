@@ -1,5 +1,5 @@
 {
-  "goal_id": "Wander",
+  "id": "Wander",
   "goal_name": "Wander Aimlessly",
   "preconditions": {
 	"is_wandering": true

@@ -1,5 +1,6 @@
 {
-	"tag_id": "Food",
-	"tag_name": "Food",
-	"effect_type": "PERMANENT"
+  "id": "tag_food",
+  "tag_name": "Food",
+  "type": "PROPERTY",
+  "effect_type": "PERMANENT"
 }

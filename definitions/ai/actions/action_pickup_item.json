@@ -1,5 +1,5 @@
 {
-  "action_id": "PickupItem",
+  "id": "PickupItem",
   "cost": 1.0,
   "preconditions": {},
   "effects": {
