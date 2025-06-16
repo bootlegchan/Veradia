@@ -5,7 +5,6 @@
 class_name EntityManager extends Node
 
 ## Dictionaries to store loaded definitions, keyed by their unique IDs.
-var _entity_definitions: Dictionary = {}
 var _goap_goals: Dictionary = {}
 var _goap_actions: Dictionary = {}
 var _granular_needs: Dictionary = {}
@@ -90,9 +89,9 @@ func _load_tres_resource_file(res_path: String, expected_class_name: String, tar
 	if not (resource is Resource and resource.get_script() != null and resource.get_script().get_instance_base_type() == expected_class_name):
 		push_warning("EntityManager: Resource %s is not of expected type %s. Actual type: %s" % [res_path, expected_class_name, resource.get_class()])
 		return
-	var resource_id: String = _get_resource_id_from_object(resource, expected_class_name, res_path)
+	var resource_id: String = (resource as DefinitionBase).id
 	if resource_id.is_empty():
-		push_error("EntityManager: Resource %s has empty ID." % res_path)
+		push_error("EntityManager: Resource %s has an empty ID." % res_path)
 		return
 	if target_dict.has(resource_id):
 		push_warning("EntityManager: Duplicate ID '%s' found for resource %s. Overwriting existing." % [resource_id, res_path])
@@ -113,9 +112,12 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 	var data: Dictionary = parse_result
 	var resource = _create_resource_from_data(data, target_class_name, json_path)
 	if not resource: return
-	var resource_id = _get_resource_id_from_object(resource, target_class_name, json_path)
+	var resource_id: String = (resource as DefinitionBase).id
+	if target_class_name == "ScheduleEntry":
+		resource_id = json_path.get_file()
+		(resource as DefinitionBase).id = resource_id
 	if resource_id.is_empty():
-		push_error("EntityManager: JSON resource %s has empty ID." % json_path)
+		push_error("EntityManager: JSON resource %s has an empty ID." % json_path)
 		return
 	if target_dict.has(resource_id):
 		push_warning("EntityManager: Duplicate ID '%s' found for JSON resource %s. Overwriting existing." % [resource_id, json_path])
@@ -151,28 +153,6 @@ func _create_resource_from_data(data: Dictionary, target_class_name: String, sou
 			push_warning("EntityManager: Resource '%s' (from %s) does not have property '%s'." % [target_class_name, source_path, key])
 	return resource
 
-## Extracts the unique ID from a resource object based on its class.
-func _get_resource_id_from_object(resource: Resource, class_name: String, source_path: String) -> String:
-	match class_name:
-		"GOAPGoalDefinition":
-			return (resource as GOAPGoalDefinition).goal_id
-		"GOAPActionDefinition":
-			return (resource as GOAPActionDefinition).action_id
-		"GranularNeedDefinition":
-			return (resource as GranularNeedDefinition).need_id
-		"ItemDefinition", "NPCEntityDefinition":
-			return (resource as EntityDefinition).entity_id
-		"PersonalityTraitDefinition":
-			return (resource as PersonalityTraitDefinition).trait_id
-		"TagDefinition":
-			return (resource as TagDefinition).tag_id
-		"ScheduleEntry":
-			return source_path.get_file().get_basename()
-		_:
-			push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'." % [class_name, source_path])
-			return file_path_to_id(source_path)
-	return ""
-
 ## Parses an array of schedule entry IDs and returns the corresponding resource objects.
 func _parse_schedule_entries(schedule_entry_ids: Array) -> Array[ScheduleEntry]:
 	var parsed_entries: Array[ScheduleEntry] = []
@@ -187,19 +167,13 @@ func _parse_schedule_entries(schedule_entry_ids: Array) -> Array[ScheduleEntry]:
 			push_warning("EntityManager: Could not find schedule entry definition for ID '%s'." % entry_id)
 	return parsed_entries
 
-## Helper to convert a file path into a potential ID (strips extension and path).
-func file_path_to_id(path: String) -> String:
-	return path.get_file().get_basename()
-
 ## --- Public API for retrieving definitions ---
 
-func get_entity_definition(id: String) -> EntityDefinition:
-	var entity_def = _npc_entity_definitions.get(id)
-	if entity_def: return entity_def
-	entity_def = _item_definitions.get(id)
-	if entity_def: return entity_def
-	entity_def = _entity_definitions.get(id)
-	if entity_def: return entity_def
+func get_entity_definition(id: String) -> DefinitionBase:
+	if _npc_entity_definitions.has(id):
+		return _npc_entity_definitions[id]
+	if _item_definitions.has(id):
+		return _item_definitions[id]
 	return null
 
 func get_schedule_entry(id: String) -> ScheduleEntry: return _schedule_entries.get(id)
@@ -221,7 +195,7 @@ func get_cognitive_bias(_id: String): return null
 
 ## Spawns an entity based on its definition ID.
 func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3 = Vector3.ZERO, global_rotation: Vector3 = Vector3.ZERO, extra_data: Dictionary = {}) -> Node3D:
-	var entity_def: EntityDefinition = get_entity_definition(entity_id)
+	var entity_def: DefinitionBase = get_entity_definition(entity_id)
 	if not entity_def:
 		push_error("EntityManager: Entity definition not found for ID: '%s'" % entity_id)
 		return null
@@ -240,7 +214,7 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 	parent_node.add_child(entity_node)
 	entity_node.global_position = global_position
 	entity_node.global_rotation_degrees = global_rotation
-	if "entity_id_name" in entity_node: entity_node.entity_id_name = entity_def.entity_id
+	if "entity_id_name" in entity_node: entity_node.entity_id_name = entity_def.id
 	if "entity_name_display" in entity_node: entity_node.entity_name_display = entity_def.entity_name
 	if "entity_type" in entity_node: entity_node.entity_type = entity_def.entity_type
 	if entity_def is NPCEntityDefinition:

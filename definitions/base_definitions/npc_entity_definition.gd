@@ -1,8 +1,17 @@
 ## npc_entity_definition.gd
 ## Defines the blueprint for an Non-Player Character (NPC) entity.
-## This resource extends EntityDefinition with NPC-specific attributes
+## This resource extends DefinitionBase with NPC-specific attributes
 ## and initial states.
-class_name NPCEntityDefinition extends EntityDefinition
+class_name NPCEntityDefinition extends DefinitionBase
+
+## A human-readable name for the entity.
+@export var entity_name: String = ""
+## The category of the entity, which for NPCs is always "NPC".
+@export var entity_type: String = "NPC"
+## The direct path to the scene file (.tscn) that represents this entity.
+@export var scene_path: String = ""
+## An array of TagDefinition IDs that are initially applied to this entity when it's spawned.
+@export var initial_tags: Array[String] = []
 
 ## The initial health/physiological level of the NPC when spawned (0.0-1.0).
 @export var initial_physiological_level: float = 1.0

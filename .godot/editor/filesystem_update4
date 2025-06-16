@@ -25,3 +25,4 @@ res://definitions/base_definitions/granular_need_definition.gd
 res://definitions/base_definitions/entity_definition.gd
 res://definitions/base_definitions/personality_trait_definition.gd
 res://definitions/base_definitions/tag_definition.gd
+res://definitions/base_definitions/item_definition.gd

@@ -1,7 +1,16 @@
 ## item_definition.gd
 ## Defines the properties for various items in the game world.
 ## These resources are loaded by EntityManager.
-class_name ItemDefinition extends EntityDefinition
+class_name ItemDefinition extends DefinitionBase
+
+## A human-readable name for the entity.
+@export var entity_name: String = ""
+## The category of the entity (e.g., "ITEM", "BUILDING").
+@export var entity_type: String = ""
+## The direct path to the scene file (.tscn) that represents this entity.
+@export var scene_path: String = ""
+## An array of TagDefinition IDs that are initially applied to this entity when it's spawned.
+@export var initial_tags: Array[String] = []
 
 ## The category of the item (e.g., "Food", "Tool", "Currency").
 @export var item_category: String = ""
