@@ -87,7 +87,7 @@ func _ready():
 	# that depends on NPCAI's personality and biases.
 	_npc_blackboard = NPCBlackboardRef.new()
 	_npc_memory = NPCMemoryRef.new(self) # Pass 'self' (this NPCAI instance) to NPCMemory
-	_daily_schedule = DailyScheduleRef.new() # DailySchedule currently requires no args, adjust if needed
+	_daily_schedule = DailyScheduleRef.new()
 
 	_ai_manager.npc_plan_generated.connect(receive_plan)
 	_ai_manager.npc_plan_failed.connect(plan_failed)
@@ -116,9 +116,9 @@ func initialize(definition: NPCEntityDefinition):
 	_initialize_granular_needs()
 	_initialize_tags()
 	_initialize_cognitive_biases()
-	# No need to call _npc_memory._init() again; it was handled by .new(self) in _ready().
-	# The _npc_memory can now access updated _personality_state and _active_cognitive_biases
-	# directly via its _parent_npc_ai reference whenever it needs them.
+	
+	# Initialize the daily schedule with the entries from the definition file.
+	_daily_schedule.initialize(_definition.schedule_entries)
 
 	_ai_manager.register_npc_ai(self)
 
