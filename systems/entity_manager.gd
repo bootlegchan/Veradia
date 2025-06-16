@@ -13,6 +13,7 @@ var _item_definitions: Dictionary = {}
 var _npc_entity_definitions: Dictionary = {}
 var _personality_traits: Dictionary = {}
 var _tag_definitions: Dictionary = {}
+var _schedule_entries: Dictionary = {} # Added for schedule entries
 var _mood_types: Dictionary = {} # Future: For MoodType.gd
 var _skill_definitions: Dictionary = {} # Future: For Skill.gd
 var _job_postings: Dictionary = {} # Future: For JobPosting.gd
@@ -33,8 +34,8 @@ var _belief_systems: Dictionary = {} # Future: For BeliefSystem.gd
 const _UTILITY_EVALUATOR_CLASS_MAP: Dictionary = {
 	"NeedLevel": "res://features/npc_module/components/utility_evaluators/need_level_evaluator.gd",
 	"TagPresence": "res://features/npc_module/components/utility_evaluators/tag_presence_evaluator.gd",
-	"PersonalityTrait": "res://features/npc_module/components/utility_evaluators/personality_trait_evaluator.gd"
-	# Add other evaluator types here as they are created
+	"PersonalityTrait": "res://features/npc_module/components/utility_evaluators/personality_trait_evaluator.gd",
+	"UtilityEvaluator": "res://definitions/base_definitions/utility_evaluator.gd" # Base class for parsing
 }
 
 ## Called when the node enters the scene tree for the first time.
@@ -50,11 +51,12 @@ func _ready():
 		"Goals": _goap_goals.size(),
 		"Actions": _goap_actions.size(),
 		"NPCs": _npc_entity_definitions.size(),
-		"Items": _item_definitions.size()
+		"Items": _item_definitions.size(),
+		"Schedules": _schedule_entries.size()
 	}
-	print(" > Loaded %d Needs, %d Tags, %d Traits, %d Goals, %d Actions, %d NPCs, %d Items" % \
+	print(" > Loaded %d Needs, %d Tags, %d Traits, %d Goals, %d Actions, %d NPCs, %d Items, %d Schedules" % \
 	[loaded_counts.Needs, loaded_counts.Tags, loaded_counts.Traits, loaded_counts.Goals, \
-	loaded_counts.Actions, loaded_counts.NPCs, loaded_counts.Items])
+	loaded_counts.Actions, loaded_counts.NPCs, loaded_counts.Items, loaded_counts.Schedules])
 
 ## Recursively loads all definition resources from predefined directories.
 func _load_all_definitions():
@@ -62,19 +64,13 @@ func _load_all_definitions():
 	_load_resources("res://definitions/ai/actions/", "GOAPActionDefinition", _goap_actions)
 	_load_resources("res://definitions/needs/", "GranularNeedDefinition", _granular_needs)
 	_load_resources("res://definitions/items/", "ItemDefinition", _item_definitions)
-	_load_resources("res://definitions/npcs/", "NPCEntityDefinition", _npc_entity_definitions)
+	_load_resources("res://definitions/npcs/schedules/", "ScheduleEntry", _schedule_entries) # Load schedules first
+	_load_resources("res://definitions/npcs/", "NPCEntityDefinition", _npc_entity_definitions) # Load NPCs last
 	_load_resources("res://definitions/tags/", "TagDefinition", _tag_definitions)
 	_load_resources("res://definitions/traits/", "PersonalityTraitDefinition", _personality_traits)
-	# TODO: Add calls for other definition types as their folders and base resources are implemented.
+
 
 ## Helper function to load resources from a given path.
-## Supports both .tres (Godot Resource) and .json files.
-##
-## Parameters:
-## - path: The directory path to scan for resources.
-## - expected_class_name: The expected `class_name` of the GDScript resource.
-##                        Used to validate .tres files or determine target for .json.
-## - target_dict: The dictionary to store the loaded resources.
 func _load_resources(path: String, expected_class_name: String, target_dict: Dictionary):
 	var dir = DirAccess.open(path)
 	if not dir:
@@ -94,11 +90,6 @@ func _load_resources(path: String, expected_class_name: String, target_dict: Dic
 	dir.list_dir_end()
 
 ## Loads a Godot .tres resource file.
-##
-## Parameters:
-## - res_path: The full path to the .tres file.
-## - expected_class_name: The expected `class_name` of the resource.
-## - target_dict: The dictionary to store the loaded resource.
 func _load_tres_resource_file(res_path: String, expected_class_name: String, target_dict: Dictionary):
 	if not ResourceLoader.exists(res_path):
 		push_warning("EntityManager: Resource file does not exist: %s" % res_path)
@@ -109,30 +100,11 @@ func _load_tres_resource_file(res_path: String, expected_class_name: String, tar
 		push_error("EntityManager: Failed to load resource: %s" % res_path)
 		return
 
-	# Use 'is' operator for type checking with class_name
 	if not (resource is Resource and resource.get_script() != null and resource.get_script().get_instance_base_type() == expected_class_name):
 		push_warning("EntityManager: Resource %s is not of expected type %s. Actual type: %s" % [res_path, expected_class_name, resource.get_class()])
 		return
 
-	var resource_id: String = ""
-	if expected_class_name == "GOAPGoalDefinition":
-		resource_id = (resource as GOAPGoalDefinition).goal_id
-	elif expected_class_name == "GOAPActionDefinition":
-		resource_id = (resource as GOAPActionDefinition).action_id
-	elif expected_class_name == "GranularNeedDefinition":
-		resource_id = (resource as GranularNeedDefinition).need_id
-	elif expected_class_name == "ItemDefinition":
-		resource_id = (resource as ItemDefinition).entity_id
-	elif expected_class_name == "NPCEntityDefinition":
-		resource_id = (resource as NPCEntityDefinition).entity_id
-	elif expected_class_name == "PersonalityTraitDefinition":
-		resource_id = (resource as PersonalityTraitDefinition).trait_id
-	elif expected_class_name == "TagDefinition":
-		resource_id = (resource as TagDefinition).tag_id
-	else:
-		push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'. Using filename." % [expected_class_name, res_path])
-		resource_id = file_path_to_id(res_path)
-
+	var resource_id: String = _get_resource_id_from_object(resource, expected_class_name, res_path)
 	if resource_id.is_empty():
 		push_error("EntityManager: Resource %s has empty ID." % res_path)
 		return
@@ -142,12 +114,7 @@ func _load_tres_resource_file(res_path: String, expected_class_name: String, tar
 
 	target_dict[resource_id] = resource
 
-## Loads a JSON file and attempts to convert it into a Godot Resource.
-##
-## Parameters:
-## - json_path: The full path to the .json file.
-## - target_class_name: The `class_name` of the GDScript resource to instantiate.
-## - target_dict: The dictionary to store the loaded resource.
+## Loads a JSON file and converts it into a Godot Resource.
 func _load_json_resource_file(json_path: String, target_class_name: String, target_dict: Dictionary):
 	var file = FileAccess.open(json_path, FileAccess.READ)
 	if not file:
@@ -163,50 +130,12 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 		return
 
 	var data: Dictionary = parse_result
-
-	var script_path = "res://definitions/base_definitions/%s.gd" % target_class_name.to_snake_case()
-	var script = load(script_path)
-	if not script or not script is GDScript:
-		push_error("EntityManager: Could not load script for class '%s' at path '%s'." % [target_class_name, script_path])
-		return
-
-	var resource: Resource = script.new()
+	var resource = _create_resource_from_data(data, target_class_name, json_path)
+	
 	if not resource:
-		push_error("EntityManager: Failed to instantiate resource of type '%s' from script '%s'." % [target_class_name, script_path])
 		return
 
-	# Populate resource properties from dictionary data
-	for key in data:
-		# Use 'in' operator to check if property exists. It's the idiomatic GDScript way.
-		if key in resource:
-			var value = data[key]
-			if key == "utility_evaluators" and value is Array:
-				resource.set(key, _parse_utility_evaluators(value))
-			else:
-				resource.set(key, value)
-		else:
-			push_warning("EntityManager: Resource '%s' (from %s) does not have property '%s'." % [target_class_name, json_path, key])
-
-	var resource_id: String = ""
-	if target_class_name == "GOAPGoalDefinition":
-		resource_id = (resource as GOAPGoalDefinition).goal_id
-	elif target_class_name == "GOAPActionDefinition":
-		resource_id = (resource as GOAPActionDefinition).action_id
-	elif target_class_name == "GranularNeedDefinition":
-		resource_id = (resource as GranularNeedDefinition).need_id
-	elif target_class_name == "ItemDefinition":
-		resource_id = (resource as ItemDefinition).entity_id
-	elif target_class_name == "NPCEntityDefinition":
-		resource_id = (resource as NPCEntityDefinition).entity_id
-	elif target_class_name == "PersonalityTraitDefinition":
-		resource_id = (resource as PersonalityTraitDefinition).trait_id
-	elif target_class_name == "TagDefinition":
-		resource_id = (resource as TagDefinition).tag_id
-	else:
-		push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'. Using filename." % [target_class_name, json_path])
-		resource_id = file_path_to_id(json_path)
-
-
+	var resource_id = _get_resource_id_from_object(resource, target_class_name, json_path)
 	if resource_id.is_empty():
 		push_error("EntityManager: JSON resource %s has empty ID." % json_path)
 		return
@@ -216,147 +145,119 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 
 	target_dict[resource_id] = resource
 
+## Creates and populates a Resource object from a dictionary of data.
+func _create_resource_from_data(data: Dictionary, target_class_name: String, source_path: String) -> Resource:
+	var script_path: String
+	if target_class_name == "UtilityEvaluator":
+		var evaluator_type = data.get("evaluator_type", "UtilityEvaluator")
+		script_path = _UTILITY_EVALUATOR_CLASS_MAP.get(evaluator_type)
+	else:
+		script_path = "res://definitions/base_definitions/%s.gd" % target_class_name.to_snake_case()
+
+	if script_path.is_empty() or not ResourceLoader.exists(script_path):
+		push_error("EntityManager: Could not find script for class '%s' at path '%s'." % [target_class_name, script_path])
+		return null
+		
+	var script = load(script_path)
+	if not script is GDScript:
+		push_error("EntityManager: Failed to load script for class '%s' at path '%s'." % [target_class_name, script_path])
+		return null
+
+	var resource: Resource = script.new()
+	if not resource:
+		push_error("EntityManager: Failed to instantiate resource of type '%s' from script '%s'." % [target_class_name, script_path])
+		return null
+
+	for key in data:
+		if key in resource:
+			var value = data[key]
+			if key == "schedule_entries" and value is Array:
+				resource.set(key, _parse_schedule_entries(value))
+			else:
+				resource.set(key, value)
+		else:
+			push_warning("EntityManager: Resource '%s' (from %s) does not have property '%s'." % [target_class_name, source_path, key])
+	
+	return resource
+
+## Extracts the unique ID from a resource object based on its class.
+func _get_resource_id_from_object(resource: Resource, class_name: String, source_path: String) -> String:
+	match class_name:
+		"GOAPGoalDefinition": return (resource as GOAPGoalDefinition).goal_id
+		"GOAPActionDefinition": return (resource as GOAPActionDefinition).action_id
+		"GranularNeedDefinition": return (resource as GranularNeedDefinition).need_id
+		"ItemDefinition", "NPCEntityDefinition": return (resource as EntityDefinition).entity_id
+		"PersonalityTraitDefinition": return (resource as PersonalityTraitDefinition).trait_id
+		"TagDefinition": return (resource as TagDefinition).tag_id
+		"ScheduleEntry": return source_path.get_file().get_basename() # Schedule entries don't have IDs, use filename
+		_:
+			push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'. Using filename." % [class_name, source_path])
+			return file_path_to_id(source_path)
+	return ""
 
 ## Parses an array of utility evaluator data dictionaries into actual UtilityEvaluator instances.
-## Arrays parsed from JSON are generic, so this function must accept a generic Array.
-##
-## Parameters:
-## - evaluators_data: A generic Array of Dictionaries, each defining a utility evaluator.
-## Returns:
-## - Array[UtilityEvaluator]: An array of instantiated and configured UtilityEvaluator objects.
 func _parse_utility_evaluators(evaluators_data: Array) -> Array[UtilityEvaluator]:
 	var parsed_evaluators: Array[UtilityEvaluator] = []
 	for evaluator_dict in evaluators_data:
 		if not evaluator_dict is Dictionary:
 			push_warning("EntityManager: Item in utility_evaluators array is not a dictionary. Skipping.")
 			continue
-
-		var evaluator_type = evaluator_dict.get("evaluator_type", "")
-		if evaluator_type.is_empty():
-			push_warning("EntityManager: Utility evaluator data missing 'evaluator_type'. Skipping.")
-			continue
-
-		var class_path = _UTILITY_EVALUATOR_CLASS_MAP.get(evaluator_type)
-		if not class_path:
-			push_warning("EntityManager: Unknown utility evaluator type: '%s'. Skipping." % evaluator_type)
-			continue
-
-		var script = load(class_path)
-		if not script or not script is GDScript:
-			push_error("EntityManager: Could not load script for evaluator type '%s' at path '%s'." % [evaluator_type, class_path])
-			continue
-
-		var evaluator_instance: UtilityEvaluator = script.new()
-		if not evaluator_instance:
-			push_error("EntityManager: Failed to instantiate utility evaluator of type '%s'." % evaluator_type)
-			continue
-
-		# Populate the evaluator instance's properties from the dictionary
-		for key in evaluator_dict:
-			# Use 'in' operator to check if property exists.
-			if key in evaluator_instance:
-				if key == "evaluation_curve" and evaluator_dict[key] is String:
-					# Assuming curve path is stored as string in JSON
-					var curve_path = evaluator_dict[key]
-					var curve_res = ResourceLoader.load(curve_path)
-					if curve_res is Curve:
-						evaluator_instance.set(key, curve_res)
-					else:
-						push_warning("EntityManager: Failed to load Curve resource from path '%s' for evaluator '%s'." % [curve_path, evaluator_type])
-				else:
-					evaluator_instance.set(key, evaluator_dict[key])
-			else:
-				push_warning("EntityManager: UtilityEvaluator '%s' does not have property '%s'." % [evaluator_type, key])
-
-		parsed_evaluators.append(evaluator_instance)
+		var evaluator_instance = _create_resource_from_data(evaluator_dict, "UtilityEvaluator", "nested evaluator") as UtilityEvaluator
+		if evaluator_instance:
+			parsed_evaluators.append(evaluator_instance)
 	return parsed_evaluators
+
+## Parses an array of schedule entry IDs and returns the corresponding resource objects.
+func _parse_schedule_entries(schedule_entry_ids: Array) -> Array[ScheduleEntry]:
+	var parsed_entries: Array[ScheduleEntry] = []
+	for entry_id in schedule_entry_ids:
+		if not entry_id is String:
+			push_warning("EntityManager: Item in schedule_entries array is not a string ID. Skipping.")
+			continue
+		var schedule_entry_res = get_schedule_entry(entry_id)
+		if schedule_entry_res:
+			parsed_entries.append(schedule_entry_res)
+		else:
+			push_warning("EntityManager: Could not find schedule entry definition for ID '%s'." % entry_id)
+	return parsed_entries
 
 ## Helper to convert a file path into a potential ID (strips extension and path).
 func file_path_to_id(path: String) -> String:
-	var file_name = path.get_file().get_basename()
-	return file_name.split(".", true, 1)[0] # Get part before first dot for potential double extensions like .gd.uid
+	return path.get_file().get_basename()
 
 ## --- Public API for retrieving definitions ---
 
 func get_entity_definition(id: String) -> EntityDefinition:
-	# This generic getter should check all specialized dictionaries.
 	var entity_def = _npc_entity_definitions.get(id)
 	if entity_def: return entity_def
-
 	entity_def = _item_definitions.get(id)
 	if entity_def: return entity_def
-
-	# Fallback to the generic dictionary (though it's currently unused)
 	entity_def = _entity_definitions.get(id)
 	if entity_def: return entity_def
-	
 	return null
 
-func get_goap_goal(id: String) -> GOAPGoalDefinition:
-	return _goap_goals.get(id)
+func get_schedule_entry(id: String) -> ScheduleEntry:
+	return _schedule_entries.get(id)
 
-func get_goap_action(id: String) -> GOAPActionDefinition:
-	return _goap_actions.get(id)
-
-func get_granular_need(id: String) -> GranularNeedDefinition:
-	return _granular_needs.get(id)
-
-func get_item_definition(id: String) -> ItemDefinition:
-	return _item_definitions.get(id)
-
-func get_npc_entity_definition(id: String) -> NPCEntityDefinition:
-	return _npc_entity_definitions.get(id)
-
-func get_personality_trait_definition(id: String) -> PersonalityTraitDefinition:
-	return _personality_traits.get(id)
-
-func get_tag_definition(id: String) -> TagDefinition:
-	return _tag_definitions.get(id)
-
-# TODO: Add getters for other definition types as needed
-
-func get_all_entity_definitions() -> Dictionary:
-	return _entity_definitions.duplicate()
-
-func get_all_goap_goals() -> Dictionary:
-	return _goap_goals.duplicate()
-
-func get_all_goap_actions() -> Dictionary:
-	return _goap_actions.duplicate()
-
-func get_all_granular_needs() -> Dictionary:
-	return _granular_needs.duplicate()
-
-func get_all_item_definitions() -> Dictionary:
-	return _item_definitions.duplicate()
-
-func get_all_npc_entity_definitions() -> Dictionary:
-	return _npc_entity_definitions.duplicate()
-
-func get_all_personality_traits() -> Dictionary:
-	return _personality_traits.duplicate()
-
-func get_all_tag_definitions() -> Dictionary:
-	return _tag_definitions.duplicate()
-
-func get_cognitive_bias(_id: String): # Placeholder until CognitiveBiasDefinition is implemented
-	# return _cognitive_biases.get(id)
-	return null
+func get_goap_goal(id: String) -> GOAPGoalDefinition: return _goap_goals.get(id)
+func get_goap_action(id: String) -> GOAPActionDefinition: return _goap_actions.get(id)
+func get_granular_need(id: String) -> GranularNeedDefinition: return _granular_needs.get(id)
+func get_item_definition(id: String) -> ItemDefinition: return _item_definitions.get(id)
+func get_npc_entity_definition(id: String) -> NPCEntityDefinition: return _npc_entity_definitions.get(id)
+func get_personality_trait_definition(id: String) -> PersonalityTraitDefinition: return _personality_traits.get(id)
+func get_tag_definition(id: String) -> TagDefinition: return _tag_definitions.get(id)
+func get_all_goap_goals() -> Dictionary: return _goap_goals.duplicate()
+func get_all_goap_actions() -> Dictionary: return _goap_actions.duplicate()
+func get_all_granular_needs() -> Dictionary: return _granular_needs.duplicate()
+func get_all_item_definitions() -> Dictionary: return _item_definitions.duplicate()
+func get_all_npc_entity_definitions() -> Dictionary: return _npc_entity_definitions.duplicate()
+func get_all_personality_traits() -> Dictionary: return _personality_traits.duplicate()
+func get_all_tag_definitions() -> Dictionary: return _tag_definitions.duplicate()
+func get_cognitive_bias(_id: String): return null
 
 ## Spawns an entity based on its definition ID.
-## This function is a factory that creates a Node3D scene and initializes its components.
-##
-## Parameters:
-## - entity_id: The ID of the EntityDefinition to spawn.
-## - parent_node: The Node to parent the new entity to.
-## - global_position: The global position for the new entity.
-## - global_rotation: The global rotation for the new entity.
-## - extra_data: Optional dictionary for additional initialization data (e.g., genetics for NPC).
-## Returns:
-## - Node3D: The spawned entity node, or null if spawning failed.
 func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3 = Vector3.ZERO, global_rotation: Vector3 = Vector3.ZERO, extra_data: Dictionary = {}) -> Node3D:
 	var entity_def: EntityDefinition = get_entity_definition(entity_id)
-
 	if not entity_def:
 		push_error("EntityManager: Entity definition not found for ID: '%s'" % entity_id)
 		return null
@@ -376,36 +277,20 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 		push_error("EntityManager: Failed to instantiate entity node for '%s'." % entity_id)
 		return null
 
-	# Add the node to the scene tree BEFORE setting global transform properties.
 	parent_node.add_child(entity_node)
-	
-	# Now that the node is in the tree, we can safely set its global position and rotation.
 	entity_node.global_position = global_position
-	entity_node.global_rotation_degrees = global_rotation # Use degrees for intuitive inspector values
+	entity_node.global_rotation_degrees = global_rotation
 
-	# Basic initialization based on EntityDefinition
-	# This assumes the root node of the scene has a script that extends a base entity script.
-	# Let's check for these properties before setting them.
-	if "entity_id_name" in entity_node:
-		entity_node.entity_id_name = entity_def.entity_id
-	if "entity_name_display" in entity_node:
-		entity_node.entity_name_display = entity_def.entity_name
-	if "entity_type" in entity_node:
-		entity_node.entity_type = entity_def.entity_type
+	if "entity_id_name" in entity_node: entity_node.entity_id_name = entity_def.entity_id
+	if "entity_name_display" in entity_node: entity_node.entity_name_display = entity_def.entity_name
+	if "entity_type" in entity_node: entity_node.entity_type = entity_def.entity_type
 
-	# Initialize NPCAI component if it's an NPC
 	if entity_def is NPCEntityDefinition:
 		var npc_ai_component = entity_node.find_child("NPCAI")
 		if not npc_ai_component:
-			# If NPCAI is not a child of the root scene, add it directly as an autonomous component.
-			# Or, ideally, the NPC scene itself should have NPCAI attached.
-			# For this project, NPCAI is a Node attached to the NPC Scene Root
 			push_error("EntityManager: NPCAI component not found on NPC scene root for '%s'. Ensure it's a direct child named 'NPCAI'." % entity_id)
 			entity_node.queue_free()
 			return null
 		npc_ai_component.initialize(entity_def)
-		# TODO: Pass extra_data (like genetics) to npc_ai_component if applicable
-
-	# TODO: Initialize other components based on entity_def.entity_type (e.g., Item components, Building components)
 
 	return entity_node
