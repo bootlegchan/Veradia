@@ -1,0 +1,14 @@
+{
+  "action_id": "MoveToLocation",
+  "cost": 1.0,
+  "preconditions": {},
+  "effects": {
+	"at_location": true
+  },
+  "primitive_operations": [
+	{
+	  "type": "MOVE_TO_LOCATION",
+	  "target_location_key": "goal_location"
+	}
+  ]
+}

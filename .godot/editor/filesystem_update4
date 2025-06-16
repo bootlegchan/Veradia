@@ -11,3 +11,5 @@ res://definitions/base_definitions/npc_entity_definition.gd
 res://features/npc_module/components/daily_schedule.gd
 res://systems/ai_manager.gd
 res://systems/ai_worker_thread.gd
+res://definitions/ai/goals/goal_go_to_location.json
+res://definitions/ai/actions/action_move_to_location.json

@@ -1,0 +1,11 @@
+{
+  "goal_id": "GoToLocation",
+  "goal_name": "Go To a Specific Location",
+  "preconditions": {
+	"at_location": true
+  },
+  "base_importance": 0.5,
+  "linked_maslow_need": "None",
+  "is_long_term_goal": false,
+  "utility_evaluators": []
+}
