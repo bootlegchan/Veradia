@@ -154,13 +154,20 @@ func _create_resource_from_data(data: Dictionary, target_class_name: String, sou
 ## Extracts the unique ID from a resource object based on its class.
 func _get_resource_id_from_object(resource: Resource, class_name: String, source_path: String) -> String:
 	match class_name:
-		"GOAPGoalDefinition": return (resource as GOAPGoalDefinition).goal_id
-		"GOAPActionDefinition": return (resource as GOAPActionDefinition).action_id
-		"GranularNeedDefinition": return (resource as GranularNeedDefinition).need_id
-		"ItemDefinition", "NPCEntityDefinition": return (resource as EntityDefinition).entity_id
-		"PersonalityTraitDefinition": return (resource as PersonalityTraitDefinition).trait_id
-		"TagDefinition": return (resource as TagDefinition).tag_id
-		"ScheduleEntry": return source_path.get_file().get_basename()
+		"GOAPGoalDefinition":
+			return (resource as GOAPGoalDefinition).goal_id
+		"GOAPActionDefinition":
+			return (resource as GOAPActionDefinition).action_id
+		"GranularNeedDefinition":
+			return (resource as GranularNeedDefinition).need_id
+		"ItemDefinition", "NPCEntityDefinition":
+			return (resource as EntityDefinition).entity_id
+		"PersonalityTraitDefinition":
+			return (resource as PersonalityTraitDefinition).trait_id
+		"TagDefinition":
+			return (resource as TagDefinition).tag_id
+		"ScheduleEntry":
+			return source_path.get_file().get_basename()
 		_:
 			push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'." % [class_name, source_path])
 			return file_path_to_id(source_path)
