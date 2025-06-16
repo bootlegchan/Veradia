@@ -50,7 +50,8 @@ func _spawn_npc():
 		return
 
 	var spawn_point = npc_spawn_points[0]
-	var npc_node = entity_manager.spawn_entity(npc_def.entity_id, self, spawn_point.global_position)
+	# Use the standardized 'id' property from the definition.
+	var npc_node = entity_manager.spawn_entity(npc_def.id, self, spawn_point.global_position)
 	if not npc_node:
 		push_error("Main: Failed to spawn NPC '%s'." % npc_def_id)
 	else:
@@ -71,7 +72,8 @@ func _spawn_buildings():
 		return
 	
 	var spawn_point = building_spawn_points[0]
-	var house_node = entity_manager.spawn_entity(house_def.entity_id, self, spawn_point.global_position)
+	# Use the standardized 'id' property from the definition.
+	var house_node = entity_manager.spawn_entity(house_def.id, self, spawn_point.global_position)
 	if not house_node:
 		push_error("Main: Failed to spawn house.")
 	else:
@@ -110,7 +112,8 @@ func _spawn_world_items():
 				break
 			
 			var spawn_point = item_spawn_points.pick_random()
-			var item_node = entity_manager.spawn_entity(item_def.entity_id, self, spawn_point.global_position)
+			# Use the standardized 'id' property from the definition.
+			var item_node = entity_manager.spawn_entity(item_def.id, self, spawn_point.global_position)
 			
 			if not item_node:
 				push_error("Main: Failed to spawn item '%s'." % item_def_id)

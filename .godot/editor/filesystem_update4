@@ -34,3 +34,4 @@ res://scenes/items/house.tscn
 res://definitions/needs/need_hunger.json
 res://definitions/tags/tag_food.json
 res://definitions/traits/trait_gluttonous.json
+res://scenes/items/fridge.tscn
