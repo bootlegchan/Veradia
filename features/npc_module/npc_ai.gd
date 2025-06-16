@@ -112,6 +112,7 @@ func initialize(definition: NPCEntityDefinition):
 	_possessed_items = _definition.initial_inventory.duplicate()
 	_money = _definition.initial_money
 	_personality_state = _definition.initial_personality_traits.duplicate()
+	_npc_blackboard.set_data("home_entity_id", _definition.home_entity_id)
 
 	_initialize_granular_needs()
 	_initialize_tags()
@@ -273,11 +274,20 @@ func request_new_plan():
 	_current_action_index = -1
 	
 	_reset_transient_blackboard_state()
-	_update_blackboard() # Update blackboard *after* resetting transient state
-	
-	# Pass the current scheduled goal ID to the AIManager request.
+	# Set up context for the planner *before* updating the blackboard.
 	var scheduled_activity = _daily_schedule.get_scheduled_activity(_time_manager.get_current_game_hour())
 	var scheduled_goal_id = scheduled_activity.get("goal_id", "")
+	var location_key = scheduled_activity.get("location_id_key", "")
+	
+	# If there's a scheduled location, put its ID onto the blackboard.
+	if not location_key.is_empty():
+		var location_id = _npc_blackboard.get_data(location_key) # e.g., get data for "home_entity_id"
+		if location_id:
+			_npc_blackboard.set_data("goal_location", location_id)
+		else:
+			push_warning("NPCAI: Scheduled location key '%s' not found on blackboard." % location_key)
+
+	_update_blackboard()
 	
 	_ai_manager.request_plan_for_npc(get_instance_id(), scheduled_goal_id)
 
@@ -285,38 +295,24 @@ func request_new_plan():
 ## between planning cycles. This allows goals like "Wander" to be chosen again.
 func _reset_transient_blackboard_state():
 	# These keys correspond to the 'effects' of low-priority, repeatable actions.
-	var transient_keys = ["is_wandering", "is_relaxing"]
+	var transient_keys = ["is_wandering", "is_relaxing", "at_location"]
 	for key in transient_keys:
 		if _npc_blackboard.get_data(key) != null:
 			_npc_blackboard.set_data(key, false)
 
 ## Receives a new plan from the AIManager.
-##
-## Parameters:
-## - npc_instance_id: The instance ID of the NPC for which the plan was generated.
-## - goal_id: The ID of the goal the plan is for.
-## - plan: An array of GOAPActionDefinition IDs representing the plan.
 func receive_plan(npc_instance_id: int, goal_id: String, plan: Array):
-	if npc_instance_id != get_instance_id():
-		return # Not for this NPC
-
+	if npc_instance_id != get_instance_id(): return
 	_is_planning = false
 	_current_goal_id = goal_id
 	_current_plan = plan
 	_current_action_index = 0
 
 ## Handles the failure of plan generation.
-##
-## Parameters:
-## - npc_instance_id: The instance ID of the NPC for which planning failed.
-## - goal_id: The ID of the goal that failed to plan for.
-## - reason: The reason for the planning failure.
 func plan_failed(npc_instance_id: int, goal_id: String, reason: String):
-	if npc_instance_id != get_instance_id():
-		return # Not for this NPC
-
+	if npc_instance_id != get_instance_id(): return
 	_is_planning = false
-	_current_goal_id = "" # Clear current goal if plan failed
+	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
 	push_warning("NPC '%s': Plan failed for goal '%s'. Reason: %s" % [name, goal_id, reason])
@@ -348,7 +344,6 @@ func _execute_current_action():
 			primitive_success = false
 			push_warning("NPC '%s': Primitive '%s' failed for action '%s'." % [name, primitive_data.get("type", ""), action_id])
 			break
-		# Merge outcome data from primitives
 		for key in result["outcome_data"]:
 			combined_outcome_data[key] = result["outcome_data"][key]
 
@@ -365,17 +360,12 @@ func _execute_current_action():
 
 ## Applies the effects of a successfully completed action to the NPC's internal state.
 func _apply_action_effects(action_def: GOAPActionDefinition, outcome_data: Dictionary):
-	# Apply general effects defined in the action definition
 	for key in action_def.effects:
 		var value = action_def.effects[key]
 		_apply_generic_effect(key, value)
-
-	# Apply success-specific effects
 	for key in action_def.success_effects:
 		var value = action_def.success_effects[key]
 		_apply_generic_effect(key, value)
-
-	# Apply effects from primitive outcomes
 	if outcome_data.has("consumption_effects"):
 		var consumption_effects: Dictionary = outcome_data["consumption_effects"]
 		for need_id in consumption_effects:
@@ -384,24 +374,18 @@ func _apply_action_effects(action_def: GOAPActionDefinition, outcome_data: Dicti
 
 ## Applies effects based on a key-value pair, modifying internal and blackboard states.
 func _apply_generic_effect(key: String, value):
-	# Update the blackboard directly for GOAP state tracking.
 	_npc_blackboard.set_data(key, value)
-	
-	# Apply changes to the NPC's actual internal state if applicable.
 	match key:
 		"hunger_satisfied":
 			if value == true:
 				_adjust_granular_need("HUNGER", -_granular_needs_state.get("HUNGER", 0.0))
 				print("NPC '%s' is no longer hungry." % name)
 		"has_item_apple":
-			if value == false:
-				remove_item_from_inventory("item_apple", 1)
-		"is_wandering", "is_relaxing":
-			# These are just GOAP flags, no direct internal state change needed.
+			if value == false: remove_item_from_inventory("item_apple", 1)
+		"is_wandering", "is_relaxing", "at_location":
 			pass
 		_:
 			push_warning("NPCAI: Unhandled generic effect key '%s'." % key)
-
 
 ## Applies effects defined for action failure.
 func _apply_action_failure_effects(action_def: GOAPActionDefinition):
@@ -426,7 +410,6 @@ func _fail_current_goal(reason: String):
 
 ## Updates the NPC's blackboard with its current internal state.
 func _update_blackboard():
-	# Update core internal states
 	_npc_blackboard.set_data("current_hp", _current_hp)
 	_npc_blackboard.set_data("granular_needs_state", _granular_needs_state.duplicate(true))
 	_npc_blackboard.set_data("active_tags", _active_tags.duplicate(true))
@@ -437,7 +420,6 @@ func _update_blackboard():
 	_npc_blackboard.set_data("current_job_id", _current_job_id)
 	_npc_blackboard.set_data("npc_instance_id", get_instance_id())
 
-	# Update derived states for GOAP planning
 	var hunger_def = _entity_manager.get_granular_need("HUNGER")
 	if hunger_def and _granular_needs_state.has("HUNGER"):
 		var is_satisfied = _granular_needs_state["HUNGER"] <= hunger_def.satisfaction_threshold
