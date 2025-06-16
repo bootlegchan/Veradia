@@ -13,29 +13,28 @@ var _item_definitions: Dictionary = {}
 var _npc_entity_definitions: Dictionary = {}
 var _personality_traits: Dictionary = {}
 var _tag_definitions: Dictionary = {}
-var _schedule_entries: Dictionary = {} # Added for schedule entries
-var _mood_types: Dictionary = {} # Future: For MoodType.gd
-var _skill_definitions: Dictionary = {} # Future: For Skill.gd
-var _job_postings: Dictionary = {} # Future: For JobPosting.gd
-var _world_events: Dictionary = {} # Future: For WorldEvent.gd
-var _pricing_strategies: Dictionary = {} # Future: For PricingStrategy.gd
-var _cognitive_biases: Dictionary = {} # Future: For CognitiveBias.gd
-var _world_entity_states: Dictionary = {} # Future: For WorldEntityState.gd
-var _social_actions: Dictionary = {} # Future: For SocialAction.gd
-var _crime_types: Dictionary = {} # Future: For CrimeType.gd
-var _environmental_parameters: Dictionary = {} # Future: For EnvironmentalParameter.gd
-var _political_offices: Dictionary = {} # Future: For PoliticalOffice.gd
-var _laws: Dictionary = {} # Future: For Law.gd
-var _genes: Dictionary = {} # Future: For Gene.gd
-var _belief_systems: Dictionary = {} # Future: For BeliefSystem.gd
+var _schedule_entries: Dictionary = {}
+var _mood_types: Dictionary = {}
+var _skill_definitions: Dictionary = {}
+var _job_postings: Dictionary = {}
+var _world_events: Dictionary = {}
+var _pricing_strategies: Dictionary = {}
+var _cognitive_biases: Dictionary = {}
+var _world_entity_states: Dictionary = {}
+var _social_actions: Dictionary = {}
+var _crime_types: Dictionary = {}
+var _environmental_parameters: Dictionary = {}
+var _political_offices: Dictionary = {}
+var _laws: Dictionary = {}
+var _genes: Dictionary = {}
+var _belief_systems: Dictionary = {}
 
 ## Mapping for JSON-defined utility evaluators to their GDScript class paths.
-## This allows dynamic instantiation of evaluators from data.
 const _UTILITY_EVALUATOR_CLASS_MAP: Dictionary = {
 	"NeedLevel": "res://features/npc_module/components/utility_evaluators/need_level_evaluator.gd",
 	"TagPresence": "res://features/npc_module/components/utility_evaluators/tag_presence_evaluator.gd",
 	"PersonalityTrait": "res://features/npc_module/components/utility_evaluators/personality_trait_evaluator.gd",
-	"UtilityEvaluator": "res://definitions/base_definitions/utility_evaluator.gd" # Base class for parsing
+	"UtilityEvaluator": "res://definitions/base_definitions/utility_evaluator.gd"
 }
 
 ## Called when the node enters the scene tree for the first time.
@@ -43,16 +42,10 @@ func _ready():
 	print("EntityManager: Loading all definitions...")
 	_load_all_definitions()
 	print("EntityManager: Loading complete.")
-	# Count loaded definitions for debugging
 	var loaded_counts = {
-		"Needs": _granular_needs.size(),
-		"Tags": _tag_definitions.size(),
-		"Traits": _personality_traits.size(),
-		"Goals": _goap_goals.size(),
-		"Actions": _goap_actions.size(),
-		"NPCs": _npc_entity_definitions.size(),
-		"Items": _item_definitions.size(),
-		"Schedules": _schedule_entries.size()
+		"Needs": _granular_needs.size(), "Tags": _tag_definitions.size(), "Traits": _personality_traits.size(),
+		"Goals": _goap_goals.size(), "Actions": _goap_actions.size(), "NPCs": _npc_entity_definitions.size(),
+		"Items": _item_definitions.size(), "Schedules": _schedule_entries.size()
 	}
 	print(" > Loaded %d Needs, %d Tags, %d Traits, %d Goals, %d Actions, %d NPCs, %d Items, %d Schedules" % \
 	[loaded_counts.Needs, loaded_counts.Tags, loaded_counts.Traits, loaded_counts.Goals, \
@@ -64,11 +57,10 @@ func _load_all_definitions():
 	_load_resources("res://definitions/ai/actions/", "GOAPActionDefinition", _goap_actions)
 	_load_resources("res://definitions/needs/", "GranularNeedDefinition", _granular_needs)
 	_load_resources("res://definitions/items/", "ItemDefinition", _item_definitions)
-	_load_resources("res://definitions/npcs/schedules/", "ScheduleEntry", _schedule_entries) # Load schedules first
-	_load_resources("res://definitions/npcs/", "NPCEntityDefinition", _npc_entity_definitions) # Load NPCs last
+	_load_resources("res://definitions/npcs/schedules/", "ScheduleEntry", _schedule_entries)
+	_load_resources("res://definitions/npcs/", "NPCEntityDefinition", _npc_entity_definitions)
 	_load_resources("res://definitions/tags/", "TagDefinition", _tag_definitions)
 	_load_resources("res://definitions/traits/", "PersonalityTraitDefinition", _personality_traits)
-
 
 ## Helper function to load resources from a given path.
 func _load_resources(path: String, expected_class_name: String, target_dict: Dictionary):
@@ -76,16 +68,13 @@ func _load_resources(path: String, expected_class_name: String, target_dict: Dic
 	if not dir:
 		push_error("EntityManager: Could not open directory: %s" % path)
 		return
-
 	dir.list_dir_begin()
 	var file_name = dir.get_next()
 	while file_name != "":
 		if file_name.ends_with(".tres"):
-			var res_path = path + file_name
-			_load_tres_resource_file(res_path, expected_class_name, target_dict)
+			_load_tres_resource_file(path + file_name, expected_class_name, target_dict)
 		elif file_name.ends_with(".json"):
-			var json_path = path + file_name
-			_load_json_resource_file(json_path, expected_class_name, target_dict)
+			_load_json_resource_file(path + file_name, expected_class_name, target_dict)
 		file_name = dir.get_next()
 	dir.list_dir_end()
 
@@ -94,24 +83,19 @@ func _load_tres_resource_file(res_path: String, expected_class_name: String, tar
 	if not ResourceLoader.exists(res_path):
 		push_warning("EntityManager: Resource file does not exist: %s" % res_path)
 		return
-
 	var resource: Resource = ResourceLoader.load(res_path)
 	if resource == null:
 		push_error("EntityManager: Failed to load resource: %s" % res_path)
 		return
-
 	if not (resource is Resource and resource.get_script() != null and resource.get_script().get_instance_base_type() == expected_class_name):
 		push_warning("EntityManager: Resource %s is not of expected type %s. Actual type: %s" % [res_path, expected_class_name, resource.get_class()])
 		return
-
 	var resource_id: String = _get_resource_id_from_object(resource, expected_class_name, res_path)
 	if resource_id.is_empty():
 		push_error("EntityManager: Resource %s has empty ID." % res_path)
 		return
-
 	if target_dict.has(resource_id):
 		push_warning("EntityManager: Duplicate ID '%s' found for resource %s. Overwriting existing." % [resource_id, res_path])
-
 	target_dict[resource_id] = resource
 
 ## Loads a JSON file and converts it into a Godot Resource.
@@ -120,29 +104,21 @@ func _load_json_resource_file(json_path: String, target_class_name: String, targ
 	if not file:
 		push_error("EntityManager: Could not open JSON file: %s" % json_path)
 		return
-
 	var json_string = file.get_as_text()
 	file.close()
-
 	var parse_result = JSON.parse_string(json_string)
 	if not parse_result is Dictionary:
 		push_error("EntityManager: Failed to parse JSON or it's not a dictionary: %s" % json_path)
 		return
-
 	var data: Dictionary = parse_result
 	var resource = _create_resource_from_data(data, target_class_name, json_path)
-	
-	if not resource:
-		return
-
+	if not resource: return
 	var resource_id = _get_resource_id_from_object(resource, target_class_name, json_path)
 	if resource_id.is_empty():
 		push_error("EntityManager: JSON resource %s has empty ID." % json_path)
 		return
-
 	if target_dict.has(resource_id):
 		push_warning("EntityManager: Duplicate ID '%s' found for JSON resource %s. Overwriting existing." % [resource_id, json_path])
-
 	target_dict[resource_id] = resource
 
 ## Creates and populates a Resource object from a dictionary of data.
@@ -153,21 +129,17 @@ func _create_resource_from_data(data: Dictionary, target_class_name: String, sou
 		script_path = _UTILITY_EVALUATOR_CLASS_MAP.get(evaluator_type)
 	else:
 		script_path = "res://definitions/base_definitions/%s.gd" % target_class_name.to_snake_case()
-
 	if script_path.is_empty() or not ResourceLoader.exists(script_path):
 		push_error("EntityManager: Could not find script for class '%s' at path '%s'." % [target_class_name, script_path])
 		return null
-		
 	var script = load(script_path)
 	if not script is GDScript:
 		push_error("EntityManager: Failed to load script for class '%s' at path '%s'." % [target_class_name, script_path])
 		return null
-
 	var resource: Resource = script.new()
 	if not resource:
 		push_error("EntityManager: Failed to instantiate resource of type '%s' from script '%s'." % [target_class_name, script_path])
 		return null
-
 	for key in data:
 		if key in resource:
 			var value = data[key]
@@ -177,7 +149,6 @@ func _create_resource_from_data(data: Dictionary, target_class_name: String, sou
 				resource.set(key, value)
 		else:
 			push_warning("EntityManager: Resource '%s' (from %s) does not have property '%s'." % [target_class_name, source_path, key])
-	
 	return resource
 
 ## Extracts the unique ID from a resource object based on its class.
@@ -189,23 +160,11 @@ func _get_resource_id_from_object(resource: Resource, class_name: String, source
 		"ItemDefinition", "NPCEntityDefinition": return (resource as EntityDefinition).entity_id
 		"PersonalityTraitDefinition": return (resource as PersonalityTraitDefinition).trait_id
 		"TagDefinition": return (resource as TagDefinition).tag_id
-		"ScheduleEntry": return source_path.get_file().get_basename() # Schedule entries don't have IDs, use filename
+		"ScheduleEntry": return source_path.get_file().get_basename()
 		_:
-			push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'. Using filename." % [class_name, source_path])
+			push_warning("EntityManager: No ID field defined for resource type '%s' from path '%s'." % [class_name, source_path])
 			return file_path_to_id(source_path)
 	return ""
-
-## Parses an array of utility evaluator data dictionaries into actual UtilityEvaluator instances.
-func _parse_utility_evaluators(evaluators_data: Array) -> Array[UtilityEvaluator]:
-	var parsed_evaluators: Array[UtilityEvaluator] = []
-	for evaluator_dict in evaluators_data:
-		if not evaluator_dict is Dictionary:
-			push_warning("EntityManager: Item in utility_evaluators array is not a dictionary. Skipping.")
-			continue
-		var evaluator_instance = _create_resource_from_data(evaluator_dict, "UtilityEvaluator", "nested evaluator") as UtilityEvaluator
-		if evaluator_instance:
-			parsed_evaluators.append(evaluator_instance)
-	return parsed_evaluators
 
 ## Parses an array of schedule entry IDs and returns the corresponding resource objects.
 func _parse_schedule_entries(schedule_entry_ids: Array) -> Array[ScheduleEntry]:
@@ -236,9 +195,7 @@ func get_entity_definition(id: String) -> EntityDefinition:
 	if entity_def: return entity_def
 	return null
 
-func get_schedule_entry(id: String) -> ScheduleEntry:
-	return _schedule_entries.get(id)
-
+func get_schedule_entry(id: String) -> ScheduleEntry: return _schedule_entries.get(id)
 func get_goap_goal(id: String) -> GOAPGoalDefinition: return _goap_goals.get(id)
 func get_goap_action(id: String) -> GOAPActionDefinition: return _goap_actions.get(id)
 func get_granular_need(id: String) -> GranularNeedDefinition: return _granular_needs.get(id)
@@ -261,30 +218,24 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 	if not entity_def:
 		push_error("EntityManager: Entity definition not found for ID: '%s'" % entity_id)
 		return null
-
 	var scene_path = entity_def.scene_path
 	if scene_path.is_empty() or not ResourceLoader.exists(scene_path):
 		push_error("EntityManager: Scene path '%s' is invalid or not defined for entity '%s'." % [scene_path, entity_id])
 		return null
-
 	var packed_scene = ResourceLoader.load(scene_path)
 	if not packed_scene is PackedScene:
 		push_error("EntityManager: Failed to load PackedScene for entity '%s' at path: %s" % [entity_id, scene_path])
 		return null
-
 	var entity_node = packed_scene.instantiate() as Node3D
 	if not entity_node:
 		push_error("EntityManager: Failed to instantiate entity node for '%s'." % entity_id)
 		return null
-
 	parent_node.add_child(entity_node)
 	entity_node.global_position = global_position
 	entity_node.global_rotation_degrees = global_rotation
-
 	if "entity_id_name" in entity_node: entity_node.entity_id_name = entity_def.entity_id
 	if "entity_name_display" in entity_node: entity_node.entity_name_display = entity_def.entity_name
 	if "entity_type" in entity_node: entity_node.entity_type = entity_def.entity_type
-
 	if entity_def is NPCEntityDefinition:
 		var npc_ai_component = entity_node.find_child("NPCAI")
 		if not npc_ai_component:
@@ -292,5 +243,4 @@ func spawn_entity(entity_id: String, parent_node: Node, global_position: Vector3
 			entity_node.queue_free()
 			return null
 		npc_ai_component.initialize(entity_def)
-
 	return entity_node
