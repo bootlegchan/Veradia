@@ -66,44 +66,29 @@ func _initialize_worker_threads():
 		print("AIManager: Spawned AIWorkerThread %d." % i)
 
 ## Registers an NPCAI instance with the AIManager.
-##
-## Parameters:
-## - npc_ai: The NPCAI instance to register.
 func register_npc_ai(npc_ai: NPCAI):
 	var instance_id = npc_ai.get_instance_id()
 	if _npc_ai_instances.has(instance_id):
 		push_warning("AIManager: NPCAI with instance ID %d already registered." % instance_id)
 		return
-
 	_npc_ai_instances[instance_id] = npc_ai
 	print("AIManager: Registered NPC '%s' (ID: %d)." % [npc_ai.name, instance_id])
 
 ## Unregisters an NPCAI instance from the AIManager.
-##
-## Parameters:
-## - npc_ai: The NPCAI instance to unregister.
 func unregister_npc_ai(npc_ai: NPCAI):
 	var instance_id = npc_ai.get_instance_id()
 	if not _npc_ai_instances.has(instance_id):
 		push_warning("AIManager: NPCAI with instance ID %d not registered." % instance_id)
 		return
-
 	_npc_ai_instances.erase(instance_id)
-	_planning_queue.erase(instance_id) # Remove from planning queue if present
+	_planning_queue.erase(instance_id)
 	if _npc_processing_map.has(instance_id):
 		var worker_id = _npc_processing_map[instance_id]
-		# Potentially interrupt worker if it's processing this NPC, or just let it finish and clean up.
-		# For simplicity, we assume the worker will finish its current task.
 		_npc_processing_map.erase(instance_id)
 	print("AIManager: Unregistered NPC '%s' (ID: %d)." % [npc_ai.name, instance_id])
 
 ## Adds an NPC's instance ID to the planning queue if it's not already in progress.
-##
-## Parameters:
-## - npc_instance_id: The instance ID of the NPC requiring a new plan.
-## - scheduled_goal_id: (Optional) The ID of the goal currently dictated by the NPC's schedule.
 func request_plan_for_npc(npc_instance_id: int, scheduled_goal_id: String = ""):
-	# Only add to queue if not already in queue or being processed
 	if not _planning_queue.has(npc_instance_id) and not _npc_processing_map.has(npc_instance_id):
 		var task_data = {
 			"npc_instance_id": npc_instance_id,
@@ -112,51 +97,37 @@ func request_plan_for_npc(npc_instance_id: int, scheduled_goal_id: String = ""):
 		_planning_queue.append(task_data)
 
 ## Called by GlobalTimeManager at a regular interval.
-## This triggers the main AI tick for all registered NPCs.
-##
-## Parameters:
-## - current_total_minutes: The current total minutes in game time.
 func _on_time_ticked(current_total_minutes: int):
 	for npc_instance_id in _npc_ai_instances.keys():
 		var npc_ai: NPCAI = _npc_ai_instances[npc_instance_id]
-		if is_instance_valid(npc_ai): # Ensure NPC still exists
+		if is_instance_valid(npc_ai):
 			npc_ai.execute_plan_step(current_total_minutes)
 		else:
-			# Clean up invalid instances
 			_npc_ai_instances.erase(npc_instance_id)
 			_planning_queue.erase(npc_instance_id)
 			if _npc_processing_map.has(npc_instance_id):
 				_npc_processing_map.erase(npc_instance_id)
 
-## Performs the AI tick for all active NPCs, prompting them to update their states
-## and potentially request new plans.
+## Performs the AI tick for all active NPCs.
 func _perform_ai_tick():
 	for npc_instance_id in _npc_ai_instances.keys():
 		var npc_ai: NPCAI = _npc_ai_instances[npc_instance_id]
 		if is_instance_valid(npc_ai):
-			# NPC's internal states are ticked here
-			# (e.g., needs decay, mood changes, tag updates)
-			# The decision to request a plan is made by NPCAI.execute_plan_step()
-			pass # Actual state ticking is handled in NPCAI._tick_all_internal_states
+			pass
 
 ## Dispatches planning tasks from the queue to available worker threads.
 func _dispatch_planning_tasks():
-	if _planning_queue.is_empty():
-		return
-
+	if _planning_queue.is_empty(): return
 	for worker in _worker_threads:
-		if not worker.is_processing(): # Check if worker is idle
+		if not worker.is_processing():
 			if not _planning_queue.is_empty():
 				var task_info = _planning_queue.pop_front()
 				var npc_instance_id = task_info["npc_instance_id"]
 				var npc_ai: NPCAI = _npc_ai_instances.get(npc_instance_id)
-
 				if is_instance_valid(npc_ai):
 					var blackboard_snapshot: Dictionary = npc_ai.get_blackboard_snapshot().get_snapshot()
-					# Add the scheduled goal to the task data for the worker.
 					task_info["blackboard_snapshot"] = blackboard_snapshot
 					task_info["ongoing_goals"] = npc_ai.get_ongoing_goal_ids()
-					
 					worker.add_task(task_info)
 					_npc_processing_map[npc_instance_id] = worker._worker_id
 				else:
@@ -164,11 +135,10 @@ func _dispatch_planning_tasks():
 					if _npc_processing_map.has(npc_instance_id):
 						_npc_processing_map.erase(npc_instance_id)
 			else:
-				break # No more NPCs in queue
+				break
 
-## Callback for when an AI worker thread has completed processing a task (either success or failure).
+## Callback for when an AI worker thread has completed processing a task.
 func _on_worker_processing_complete(worker_id: int):
-	# Find the NPC that was being processed by this worker and remove it from the map
 	var npc_id_to_remove = -1
 	for npc_instance_id in _npc_processing_map:
 		if _npc_processing_map[npc_instance_id] == worker_id:
@@ -191,15 +161,11 @@ func _on_goal_selected(npc_instance_id: int, goal_id: String):
 
 ## Processes the goal selection result on the main thread.
 func _process_goal_selection(npc_instance_id: int, goal_id: String):
-	# This now runs safely on the main thread.
 	var npc_ai = _npc_ai_instances.get(npc_instance_id)
 	var npc_name = "ID %d" % npc_instance_id
-	if is_instance_valid(npc_ai):
-		npc_name = npc_ai.name
-
+	if is_instance_valid(npc_ai): npc_name = npc_ai.name
 	npc_goal_selected.emit(npc_instance_id, goal_id)
 	print("AIManager: NPC '%s' selected goal: '%s'" % [npc_name, goal_id])
-
 
 ## Processes the plan generation result (success or failure) on the main thread.
 func _process_plan_result(npc_instance_id: int, goal_id: String, plan: Array, success: bool, reason: String):
@@ -209,8 +175,11 @@ func _process_plan_result(npc_instance_id: int, goal_id: String, plan: Array, su
 			npc_ai.receive_plan(npc_instance_id, goal_id, plan)
 			npc_plan_generated.emit(npc_instance_id, goal_id, plan)
 			print("AIManager: Plan found for '%s':" % npc_ai.name)
-			for action_id in plan:
-				print("  - %s" % _entity_manager.get_goap_action(action_id).action_id)
+			for action_id_str in plan:
+				# Use the standardized 'id' property.
+				var action_def = _entity_manager.get_goap_action(action_id_str)
+				if action_def:
+					print("  - %s" % action_def.id)
 		else:
 			npc_ai.plan_failed(npc_instance_id, goal_id, reason)
 			npc_plan_failed.emit(npc_instance_id, goal_id, reason)

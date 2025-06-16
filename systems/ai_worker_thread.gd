@@ -25,14 +25,10 @@ var _should_run: bool = false
 var _current_task: Dictionary = {}
 
 ## Initializes the AI worker thread with necessary dependencies.
-##
-## Parameters:
-## - worker_id: A unique ID for this worker.
-## - entity_manager: Reference to the global EntityManager.
 func _init(worker_id: int, entity_manager: EntityManager):
 	_worker_id = worker_id
 	_entity_manager = entity_manager
-	_goap_planner = GOAPPlanner.new() # Each thread gets its own planner instance for thread safety.
+	_goap_planner = GOAPPlanner.new()
 
 ## Starts the thread.
 func start_thread():
@@ -47,37 +43,27 @@ func stop_thread():
 	print("AIWorkerThread %d: Stopped." % _worker_id)
 
 ## Adds a task to the worker's queue.
-##
-## Parameters:
-## - task_data: A dictionary containing task details (e.g., npc_instance_id, blackboard_snapshot, ongoing_goals).
 func add_task(task_data: Dictionary):
 	_task_queue.append(task_data)
 
-## The main loop for the worker thread. Processes tasks from the queue.
+## The main loop for the worker thread.
 func _thread_loop():
 	while _should_run:
 		if not _task_queue.is_empty():
 			_current_task = _task_queue.pop_front()
 			_process_task(_current_task)
-			_current_task = {} # Clear current task after processing
-			processing_complete.emit(_worker_id) # Signal availability
+			_current_task = {}
+			processing_complete.emit(_worker_id)
 		else:
-			# Yield to avoid busy-waiting and allow other threads/processes to run.
-			# OS.delay_msec is used for non-main thread delays.
 			OS.delay_msec(10)
 
 ## Processes a single AI task.
-## This involves selecting a goal and then finding a plan to achieve it.
-##
-## Parameters:
-## - task_data: The dictionary containing the NPC's state snapshot and ongoing goals.
 func _process_task(task_data: Dictionary):
 	var npc_instance_id: int = task_data["npc_instance_id"]
 	var blackboard_snapshot: Dictionary = task_data["blackboard_snapshot"]
 	var ongoing_goals: Array[String] = task_data["ongoing_goals"]
 	var scheduled_goal_id: String = task_data.get("scheduled_goal_id", "")
 
-	# Step 1: Select the highest utility goal
 	var selected_goal_id: String = _select_highest_utility_goal(blackboard_snapshot, ongoing_goals, scheduled_goal_id)
 
 	if selected_goal_id.is_empty():
@@ -99,18 +85,10 @@ func _process_task(task_data: Dictionary):
 	else:
 		plan_generated.emit(npc_instance_id, selected_goal_id, plan, blackboard_snapshot)
 
-## Selects the highest utility GOAP goal for an NPC based on its current state.
-## A goal is only considered if its preconditions are NOT already met in the current state.
-##
-## Parameters:
-## - npc_blackboard_snapshot: A snapshot of the NPC's current internal state.
-## - ongoing_goals: An array of IDs of goals the NPC is currently pursuing.
-## - scheduled_goal_id: The ID of the goal currently dictated by the NPC's schedule.
-## Returns:
-## - String: The ID of the selected goal, or an empty string if no suitable goal is found.
+## Selects the highest utility GOAP goal for an NPC.
 func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_goals: Array[String], scheduled_goal_id: String) -> String:
 	var best_goal_id: String = ""
-	var highest_utility: float = -INF # Initialize with negative infinity
+	var highest_utility: float = -INF
 
 	var all_goal_definitions: Dictionary = _entity_manager.get_all_goap_goals()
 
@@ -124,8 +102,8 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 
 		for ongoing_goal_id in ongoing_goals:
 			var ongoing_goal_def: GOAPGoalDefinition = _entity_manager.get_goap_goal(ongoing_goal_id)
-			if ongoing_goal_def and ongoing_goal_def.influence_on_other_goals.has(goal_def.goal_id):
-				current_utility += ongoing_goal_def.influence_on_other_goals[goal_def.goal_id]
+			if ongoing_goal_def and ongoing_goal_def.influence_on_other_goals.has(goal_def.id):
+				current_utility += ongoing_goal_def.influence_on_other_goals[goal_def.id]
 
 		if npc_blackboard_snapshot.has("personality_state"):
 			for trait_id in goal_def.relevant_personality_traits:
@@ -135,41 +113,31 @@ func _select_highest_utility_goal(npc_blackboard_snapshot: Dictionary, ongoing_g
 
 		if current_utility > highest_utility:
 			highest_utility = current_utility
-			best_goal_id = goal_def.goal_id
+			best_goal_id = goal_def.id
 
 	return best_goal_id
 
 ## Calculates the total utility for a given GOAPGoalDefinition.
-##
-## Parameters:
-## - goal_definition: The GOAPGoalDefinition to evaluate.
-## - npc_blackboard_snapshot: The current state of the NPC as a snapshot.
-## - scheduled_goal_id: The ID of the currently scheduled goal, if any.
-## Returns:
-## - float: The total calculated utility for the goal.
 func _calculate_goal_utility(goal_definition: GOAPGoalDefinition, npc_blackboard_snapshot: Dictionary, scheduled_goal_id: String) -> float:
 	var total_utility: float = goal_definition.base_importance
 
-	# Apply a large bonus if this goal matches the current schedule.
-	if not scheduled_goal_id.is_empty() and goal_definition.goal_id == scheduled_goal_id:
+	if not scheduled_goal_id.is_empty() and goal_definition.id == scheduled_goal_id:
 		total_utility += SCHEDULED_GOAL_BONUS
 
-	# Evaluate each UtilityEvaluator defined for this goal
 	for evaluator_res in goal_definition.utility_evaluators:
 		if evaluator_res is UtilityEvaluator:
 			total_utility += evaluator_res._evaluate(npc_blackboard_snapshot)
 		else:
-			push_warning("AIWorkerThread: Invalid utility evaluator resource found for goal '%s'." % goal_definition.goal_id)
+			push_warning("AIWorkerThread: Invalid utility evaluator resource found for goal '%s'." % goal_definition.id)
 
-	# Apply cognitive bias influence if present in snapshot (from NPCAI)
 	if npc_blackboard_snapshot.has("active_cognitive_biases"):
 		var active_biases: Dictionary = npc_blackboard_snapshot["active_cognitive_biases"]
 		for bias_id in active_biases:
 			var bias_def = _entity_manager.get_cognitive_bias(bias_id)
 			if bias_def and bias_def.has_method("get_influence_on_utility_evaluation"):
 				var influence_map = bias_def.get_influence_on_utility_evaluation()
-				if influence_map.has(goal_definition.goal_id):
-					total_utility *= (1.0 + influence_map[goal_definition.goal_id])
+				if influence_map.has(goal_definition.id):
+					total_utility *= (1.0 + influence_map[goal_definition.id])
 				elif influence_map.has("default"):
 					total_utility *= (1.0 + influence_map["default"])
 
