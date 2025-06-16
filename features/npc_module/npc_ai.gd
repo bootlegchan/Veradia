@@ -275,7 +275,11 @@ func request_new_plan():
 	_reset_transient_blackboard_state()
 	_update_blackboard() # Update blackboard *after* resetting transient state
 	
-	_ai_manager.request_plan_for_npc(get_instance_id())
+	# Pass the current scheduled goal ID to the AIManager request.
+	var scheduled_activity = _daily_schedule.get_scheduled_activity(_time_manager.get_current_game_hour())
+	var scheduled_goal_id = scheduled_activity.get("goal_id", "")
+	
+	_ai_manager.request_plan_for_npc(get_instance_id(), scheduled_goal_id)
 
 ## Resets temporary GOAP state flags from the blackboard so they don't persist
 ## between planning cycles. This allows goals like "Wander" to be chosen again.
