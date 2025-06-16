@@ -20,6 +20,10 @@ class_name NPCEntityDefinition extends EntityDefinition
 ## The initial personality trait values of the NPC as a dictionary, mapping trait_id to value (0.0-1.0).
 ## Example: {"trait_gluttonous": 0.7, "trait_brave": 0.3}
 @export var initial_personality_traits: Dictionary = {}
+
+## An array of ScheduleEntry resources defining the NPC's default daily routine.
+@export var schedule_entries: Array[ScheduleEntry] = []
+
 ## An array of GOAPGoalDefinition IDs that the NPC will try to pursue from the start,
 ## or which are considered inherent desires.
 @export var initial_ongoing_goal_ids: Array[String] = []
