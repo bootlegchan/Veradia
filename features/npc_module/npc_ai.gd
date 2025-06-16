@@ -207,7 +207,7 @@ func _tick_memory(current_total_minutes: int):
 	
 ## Checks if the current timed action has finished.
 func _check_action_completion():
-	if OS.get_ticks_msec() >= _action_finish_time:
+	if Time.get_ticks_msec() >= _action_finish_time:
 		_action_in_progress = false
 		_action_finish_time = 0.0
 		_current_action_index += 1
@@ -299,7 +299,7 @@ func _apply_action_effects(action_def: GOAPActionDefinition, outcome_data: Dicti
 	if outcome_data.has("action_duration"):
 		var duration_seconds = outcome_data["action_duration"]
 		_action_in_progress = true
-		_action_finish_time = OS.get_ticks_msec() + (duration_seconds * 1000)
+		_action_finish_time = Time.get_ticks_msec() + (duration_seconds * 1000)
 
 ## Applies effects based on a key-value pair, modifying internal and blackboard states.
 func _apply_generic_effect(key: String, value):
