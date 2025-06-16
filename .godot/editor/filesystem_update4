@@ -8,3 +8,4 @@ res://definitions/ai/actions/action_relax.json
 res://systems/action_primitive_handler.gd
 res://definitions/base_definitions/schedule_entry.gd
 res://definitions/base_definitions/npc_entity_definition.gd
+res://features/npc_module/components/daily_schedule.gd
