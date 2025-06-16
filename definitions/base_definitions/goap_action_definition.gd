@@ -2,10 +2,8 @@
 ## Defines the properties and effects for a GOAP (Goal-Oriented Action Planning) Action.
 ## These resources are loaded by EntityManager and used by the GOAPPlanner to build plans
 ## and by NPCAI to execute actions.
-class_name GOAPActionDefinition extends Resource
+class_name GOAPActionDefinition extends DefinitionBase
 
-## A unique identifier for this action definition.
-@export var action_id: String = ""
 ## The base cost of performing this action. Higher cost means the planner prefers it less,
 ## unless it's the only path or highly efficient.
 @export var cost: float = 1.0

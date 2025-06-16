@@ -1,67 +1,15 @@
-# TagDefinition.gd
+## tag_definition.gd
+## Defines a dynamic modifier tag that can be applied to NPCs or other entities.
+## Tags can influence behavior, stats, and relationships.
+## These resources are loaded by EntityManager.
+class_name TagDefinition extends DefinitionBase
 
-# Defines the properties of a Tag, which is a universal dynamic modifier.
-# Tags are status effects that can be applied to any entity (NPCs, items, etc.)
-# to influence their state and behavior. For example, a "Hungry" tag could
-# increase the decay rate of a "Stamina" need and increase the utility of any
-# goal related to eating. This data-driven approach allows for complex emergent
-# interactions without writing custom code for every status effect.
-class_name TagDefinition
-extends Resource
-
-# --- Tag Properties ---
-
-# The unique identifier for this tag (e.g., "TAG_HUNGRY", "TAG_INJURED").
-@export var tag_id: String = ""
-
-# The human-readable name for display purposes (e.g., "Hungry", "Injured").
+## A human-readable name for the tag.
 @export var tag_name: String = ""
-
-# Defines how the tag is removed.
-# "PERMANENT": Never removed automatically.
-# "TEMPORARY": Removed after a specific duration (to be implemented).
-# "ELASTIC": Strength changes over time and may be removed at a threshold (to be implemented).
-@export var effect_type: String = "PERMANENT"
-
-# A dictionary defining how this tag influences granular needs.
-# The structure allows for multipliers or additive modifiers.
-# Example: {"HUNGER": {"decay_multiplier": 1.5}, "ENERGY": {"decay_multiplier": 1.2}}
-@export var influence_on_needs: Dictionary = {}
-
-# A dictionary defining how this tag influences personality traits.
-# Example: {"AGREEABLENESS": {"add_modifier": -0.2}}
-@export var influence_on_personality: Dictionary = {}
-
-# A dictionary defining how this tag influences the utility of GOAP goals.
-# Example: {"EatFood": {"utility_multiplier": 1.5}}
-@export var influence_on_goal_utility: Dictionary = {}
-
-# --- Static Factory Method ---
-
-## Creates and populates a new TagDefinition from a dictionary.
-## This enables loading tag definitions from external JSON files.
-##
-## @param data: A Dictionary containing the tag's properties.
-## @return A TagDefinition instance, or null if parsing fails.
-static func from_json(data: Dictionary) -> TagDefinition:
-	# A tag must have a unique ID to be identifiable.
-	if not data.has("tag_id"):
-		push_error("TagDefinition: Failed to parse. Missing 'tag_id'.")
-		return null
-
-	var definition = TagDefinition.new()
-
-	# Populate the resource's properties from the dictionary.
-	definition.tag_id = data.get("tag_id", "")
-	definition.tag_name = data.get("tag_name", definition.tag_id) # Default name to ID
-	definition.effect_type = data.get("effect_type", "PERMANENT")
-	definition.influence_on_needs = data.get("influence_on_needs", {})
-	definition.influence_on_personality = data.get("influence_on_personality", {})
-	definition.influence_on_goal_utility = data.get("influence_on_goal_utility", {})
-
-	# Validate that the ID is not empty.
-	if definition.tag_id.is_empty():
-		push_error("TagDefinition: 'tag_id' cannot be empty.")
-		return null
-
-	return definition
+## The category of the tag (e.g., "STATE", "RELATIONSHIP", "TEMPORARY_EFFECT").
+@export var type: String = ""
+## The effect type of the tag, which determines its lifespan.
+## PERMANENT: Lasts forever unless removed by a specific action.
+## TEMPORARY: Decays over time.
+## ELASTIC: Strength changes based on game conditions.
+@export var effect_type: String = "" # PERMANENT, TEMPORARY, ELASTIC

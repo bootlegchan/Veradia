@@ -2,10 +2,8 @@
 ## Defines the properties and conditions for a GOAP (Goal-Oriented Action Planning) Goal.
 ## These resources are loaded by EntityManager and used by the GOAPPlanner and NPCAI
 ## to determine an NPC's desires and motivations.
-class_name GOAPGoalDefinition extends Resource
+class_name GOAPGoalDefinition extends DefinitionBase
 
-## A unique identifier for this goal definition.
-@export var goal_id: String = ""
 ## A human-readable name for the goal.
 @export var goal_name: String = ""
 ## A dictionary of key-value pairs representing the desired state for this goal to be considered met.

@@ -2,10 +2,8 @@
 ## Defines a specific, measurable need (e.g., Hunger, Thirst, Sleep).
 ## These resources are loaded by EntityManager and used by NPCAI to manage
 ## the physiological and psychological states of NPCs.
-class_name GranularNeedDefinition extends Resource
+class_name GranularNeedDefinition extends DefinitionBase
 
-## A unique identifier for this granular need.
-@export var need_id: String = ""
 ## A human-readable name for the need.
 @export var need_name: String = ""
 ## The Maslow's Hierarchy of Needs level this granular need belongs to
