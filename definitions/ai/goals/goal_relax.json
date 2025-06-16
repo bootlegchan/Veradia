@@ -1,0 +1,11 @@
+{
+  "goal_id": "Relax",
+  "goal_name": "Relax and Rest",
+  "preconditions": {
+	"is_relaxing": true
+  },
+  "base_importance": 0.2,
+  "linked_maslow_need": "Physiological",
+  "is_long_term_goal": false,
+  "utility_evaluators": []
+}

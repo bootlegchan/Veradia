@@ -1,0 +1,11 @@
+{
+  "goal_id": "Wander",
+  "goal_name": "Wander Aimlessly",
+  "preconditions": {
+	"is_wandering": true
+  },
+  "base_importance": 0.1,
+  "linked_maslow_need": "None",
+  "is_long_term_goal": false,
+  "utility_evaluators": []
+}

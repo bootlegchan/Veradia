@@ -157,8 +157,7 @@ func execute_plan_step(current_total_minutes: int):
 		return
 
 	_tick_internal_states(current_total_minutes)
-	_update_blackboard() # Always update blackboard before any decision or planning request
-
+	
 	if _is_planning:
 		# Already waiting for a plan, do nothing.
 		return
@@ -237,11 +236,11 @@ func _tick_tags(current_total_minutes: int):
 	for tag_id in tags_to_update:
 		var tag_def: TagDefinition = _entity_manager.get_tag_definition(tag_id)
 		if not tag_def:
-			push_warning("NPCAI %d: Tag definition for ID '%s' not found during tick." % [get_instance_id(), tag_id])
+			# Temporarily suppress warning for tag_hungry until it's properly defined
+			if tag_id != "tag_hungry":
+				push_warning("NPCAI %d: Tag definition for ID '%s' not found during tick." % [get_instance_id(), tag_id])
 			continue
 
-		# Example: simple decay for temporary tags (placeholder for Tag.gd logic)
-		# This should use Tag.dynamic_strength_modifiers for complex rules.
 		if tag_def.effect_type == "TEMPORARY":
 			var current_strength = _active_tags[tag_id]
 			var decay_rate = 0.005 # Example decay rate, should come from TagDef
@@ -272,11 +271,22 @@ func request_new_plan():
 	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
-	#print("DEBUG: NPCAI %d - Requesting new plan." % get_instance_id())
+	
+	_reset_transient_blackboard_state()
+	_update_blackboard() # Update blackboard *after* resetting transient state
+	
 	_ai_manager.request_plan_for_npc(get_instance_id())
 
+## Resets temporary GOAP state flags from the blackboard so they don't persist
+## between planning cycles. This allows goals like "Wander" to be chosen again.
+func _reset_transient_blackboard_state():
+	# These keys correspond to the 'effects' of low-priority, repeatable actions.
+	var transient_keys = ["is_wandering", "is_relaxing"]
+	for key in transient_keys:
+		if _npc_blackboard.get_data(key) != null:
+			_npc_blackboard.set_data(key, false)
+
 ## Receives a new plan from the AIManager.
-## This method is called via `call_deferred` from AIManager on the main thread.
 ##
 ## Parameters:
 ## - npc_instance_id: The instance ID of the NPC for which the plan was generated.
@@ -290,10 +300,8 @@ func receive_plan(npc_instance_id: int, goal_id: String, plan: Array):
 	_current_goal_id = goal_id
 	_current_plan = plan
 	_current_action_index = 0
-	#print("NPC '%s' received plan for goal '%s'. Plan length: %d" % [name, _current_goal_id, _current_plan.size()])
 
 ## Handles the failure of plan generation.
-## This method is called via `call_deferred` from AIManager on the main thread.
 ##
 ## Parameters:
 ## - npc_instance_id: The instance ID of the NPC for which planning failed.
@@ -343,23 +351,15 @@ func _execute_current_action():
 	if primitive_success:
 		_apply_action_effects(action_def, combined_outcome_data)
 		_current_action_index += 1
-		# After applying effects and before moving to the next action,
-		# update the blackboard and re-check if the overall goal is satisfied.
-		# This handles cases where a goal might be achieved mid-plan.
 		_update_blackboard()
 		var goal_def = _entity_manager.get_goap_goal(_current_goal_id)
 		if goal_def and _npc_blackboard.check_state(goal_def.preconditions):
-			print("NPC '%s': Goal '%s' satisfied mid-plan." % [name, _current_goal_id])
 			_finish_current_goal()
 	else:
 		_apply_action_failure_effects(action_def)
 		_fail_current_goal("Primitive operation failed.")
 
 ## Applies the effects of a successfully completed action to the NPC's internal state.
-##
-## Parameters:
-## - action_def: The GOAPActionDefinition that was executed.
-## - outcome_data: Any additional data returned by primitive operations (e.g., consumption effects).
 func _apply_action_effects(action_def: GOAPActionDefinition, outcome_data: Dictionary):
 	# Apply general effects defined in the action definition
 	for key in action_def.effects:
@@ -371,56 +371,39 @@ func _apply_action_effects(action_def: GOAPActionDefinition, outcome_data: Dicti
 		var value = action_def.success_effects[key]
 		_apply_generic_effect(key, value)
 
-	# Apply effects from primitive outcomes (e.g., item consumption)
+	# Apply effects from primitive outcomes
 	if outcome_data.has("consumption_effects"):
 		var consumption_effects: Dictionary = outcome_data["consumption_effects"]
 		for need_id in consumption_effects:
 			var change_amount = consumption_effects[need_id]
 			_adjust_granular_need(need_id, change_amount)
 
-## Applies effects based on a key-value pair, modifying internal NPC states.
-## This function centralizes how action effects update the NPC's state properties.
-##
-## Parameters:
-## - key: The string identifier for the state to modify (e.g., "hunger_satisfied", "has_item_apple").
-## - value: The new value or change amount for the state.
+## Applies effects based on a key-value pair, modifying internal and blackboard states.
 func _apply_generic_effect(key: String, value):
+	# Update the blackboard directly for GOAP state tracking.
+	_npc_blackboard.set_data(key, value)
+	
+	# Apply changes to the NPC's actual internal state if applicable.
 	match key:
 		"hunger_satisfied":
-			# This is a GOAP state flag, needs to map to actual granular need adjustment
 			if value == true:
-				_adjust_granular_need("HUNGER", -_granular_needs_state.get("HUNGER", 0.0)) # Set hunger to 0
+				_adjust_granular_need("HUNGER", -_granular_needs_state.get("HUNGER", 0.0))
 				print("NPC '%s' is no longer hungry." % name)
-		"has_item_apple": # Example: for removing item from inventory when consumed
-			if value == false: # Assuming 'has_item_X: false' means item was consumed/removed
+		"has_item_apple":
+			if value == false:
 				remove_item_from_inventory("item_apple", 1)
-		# TODO: Add more generic effect handlers as actions are defined
-		# "money_gain":
-		# 	_money += value
-		# 	money_changed.emit(get_instance_id(), _money)
-		# "add_tag":
-		# 	if value is String:
-		# 		_active_tags[value] = 1.0 # Or specific strength
-		# 		tag_changed.emit(get_instance_id(), value, 1.0)
-		# "remove_tag":
-		# 	if value is String and _active_tags.has(value):
-		# 		_active_tags.erase(value)
-		# 		tag_changed.emit(get_instance_id(), value, 0.0)
-		# Default case for direct state manipulation if needed:
-		# _:
-		# 	if has_node(key): # For properties on the NPCAI itself
-		# 		set(key, value)
-		pass
+		"is_wandering", "is_relaxing":
+			# These are just GOAP flags, no direct internal state change needed.
+			pass
+		_:
+			push_warning("NPCAI: Unhandled generic effect key '%s'." % key)
+
 
 ## Applies effects defined for action failure.
-##
-## Parameters:
-## - action_def: The GOAPActionDefinition that failed.
 func _apply_action_failure_effects(action_def: GOAPActionDefinition):
 	for key in action_def.failure_effects:
 		var value = action_def.failure_effects[key]
-		# Apply failure-specific effects, e.g., reduce mood, add stress tag
-		# _apply_generic_effect(key, value) # Re-use generic effect applier
+		_apply_generic_effect(key, value)
 
 ## Called when the current goal is successfully completed.
 func _finish_current_goal():
@@ -430,18 +413,14 @@ func _finish_current_goal():
 	_current_action_index = -1
 
 ## Called when the current goal cannot be achieved due to action failure or other issues.
-##
-## Parameters:
-## - reason: A string explaining why the goal failed.
 func _fail_current_goal(reason: String):
 	push_warning("NPC '%s': Goal '%s' failed. Reason: %s" % [name, _current_goal_id, reason])
 	_current_goal_id = ""
 	_current_plan.clear()
 	_current_action_index = -1
-	_is_planning = false # Allow new planning cycle
+	_is_planning = false
 
 ## Updates the NPC's blackboard with its current internal state.
-## This snapshot is used for goal selection and planning by the AIWorkerThread.
 func _update_blackboard():
 	# Update core internal states
 	_npc_blackboard.set_data("current_hp", _current_hp)
@@ -462,46 +441,31 @@ func _update_blackboard():
 	
 	_npc_blackboard.set_data("has_item_apple", _possessed_items.has("item_apple") and _possessed_items["item_apple"] > 0)
 	
-	# --- NEW LOGIC: Query memory for target and update blackboard ---
-	# Find the nearest known food item (specifically an apple for this test case)
 	var search_criteria = {"entity_id_name": "item_apple", "sort_by": "NEAREST"}
 	var nearest_food_fact: KnownFact = _npc_memory.get_best_known_entity_fact(search_criteria)
 	
 	if nearest_food_fact:
 		var food_instance_id = nearest_food_fact.data["instance_id"]
 		_npc_blackboard.set_data("nearest_food_item", food_instance_id)
-		# The action plan for "PickupItem" can now find this key.
 	else:
-		# If no food is known, remove the key to prevent actions from targeting a non-existent entity.
 		if _npc_blackboard.get_data("nearest_food_item") != null:
 			_npc_blackboard.set_data("nearest_food_item", null)
 
-## Returns a snapshot of the NPC's blackboard for external systems (e.g., AIManager).
+## Returns a snapshot of the NPC's blackboard for external systems.
 func get_blackboard_snapshot() -> NPCBlackboard:
 	return _npc_blackboard
 
 ## Returns the list of ongoing goal IDs for this NPC.
-## (Currently, this is only initial_ongoing_goal_ids from definition, but can become dynamic.)
 func get_ongoing_goal_ids() -> Array[String]:
 	return _definition.initial_ongoing_goal_ids.duplicate()
 
 ## Adds an item to the NPC's inventory.
-##
-## Parameters:
-## - item_id: The ID of the item to add.
-## - quantity: The amount of the item to add.
 func add_item_to_inventory(item_id: String, quantity: int):
 	var current_quantity = _possessed_items.get(item_id, 0)
 	_possessed_items[item_id] = current_quantity + quantity
 	inventory_changed.emit(get_instance_id(), item_id, _possessed_items[item_id])
 
 ## Removes an item from the NPC's inventory.
-##
-## Parameters:
-## - item_id: The ID of the item to remove.
-## - quantity: The amount of the item to remove.
-## Returns:
-## - bool: True if items were successfully removed, false if not enough quantity.
 func remove_item_from_inventory(item_id: String, quantity: int) -> bool:
 	var current_quantity = _possessed_items.get(item_id, 0)
 	if current_quantity >= quantity:
@@ -513,10 +477,6 @@ func remove_item_from_inventory(item_id: String, quantity: int) -> bool:
 	return false
 
 ## Adjusts a granular need's value.
-##
-## Parameters:
-## - need_id: The ID of the granular need (e.g., "HUNGER").
-## - adjustment: The amount to add or subtract (negative to reduce need/satisfy, positive to increase need/deplete).
 func _adjust_granular_need(need_id: String, adjustment: float):
 	if not _granular_needs_state.has(need_id):
 		push_warning("NPCAI: Attempted to adjust unknown granular need: %s" % need_id)
@@ -532,7 +492,6 @@ func _adjust_granular_need(need_id: String, adjustment: float):
 	if new_value != current_value:
 		_granular_needs_state[need_id] = new_value
 		need_changed.emit(get_instance_id(), need_id, new_value)
-		# Re-evaluate tags immediately after adjustment (e.g., tag_hungry)
 		if need_id == "HUNGER":
 			var hungry_tag_id = "tag_hungry"
 			var hunger_satisfied_now = new_value <= need_def.satisfaction_threshold

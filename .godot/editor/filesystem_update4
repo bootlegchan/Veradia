@@ -1,3 +1,8 @@
 res://scenes/main.tscn
 res://features/npc_module/npc_ai.gd
 res://definitions/tags/tag_hungry.json
+res://definitions/ai/goals/goal_wander.json
+res://definitions/ai/actions/action_wander.json
+res://definitions/ai/goals/goal_relax.json
+res://definitions/ai/actions/action_relax.json
+res://systems/action_primitive_handler.gd

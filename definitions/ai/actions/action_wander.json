@@ -1,0 +1,14 @@
+{
+  "action_id": "Wander",
+  "cost": 5.0,
+  "preconditions": {},
+  "effects": {
+	"is_wandering": true
+  },
+  "primitive_operations": [
+	{
+	  "type": "MOVE_TO_RANDOM_LOCATION",
+	  "radius": 15.0
+	}
+  ]
+}

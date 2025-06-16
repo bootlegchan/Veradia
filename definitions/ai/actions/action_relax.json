@@ -1,0 +1,14 @@
+{
+  "action_id": "Relax",
+  "cost": 2.0,
+  "preconditions": {},
+  "effects": {
+	"is_relaxing": true
+  },
+  "primitive_operations": [
+	{
+	  "type": "IDLE",
+	  "duration_seconds": 10
+	}
+  ]
+}
