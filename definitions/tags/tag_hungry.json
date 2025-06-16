@@ -1,12 +1,6 @@
 {
-	
-		
-	"tag_id": "TAG_HUNGRY",
-	"tag_name": "Hungry",
-	"effect_type": "ELASTIC",
-	"influence_on_goal_utility": {
-		"EatFood": {
-			"utility_multiplier": 2.0
-		}
-	}
+  "tag_id": "tag_hungry",
+  "tag_name": "Hungry",
+  "type": "STATE",
+  "effect_type": "TEMPORARY"
 }

@@ -42,19 +42,16 @@ func add_fact(fact: KnownFact):
 	var existing_fact: KnownFact = _known_facts.get(fact.fact_id)
 
 	if existing_fact:
-		# Conflict resolution: Combine or override based on certainty, source, etc.
-		# For now, a simple update, potentially averaging certainty or taking the higher.
-		# This is where _calculate_incoming_fact_certainty would be used.
-		# For simplicity, we'll just update for now.
-		existing_fact.certainty = max(existing_fact.certainty, fact.certainty) # Take higher certainty
-		existing_fact.timestamp = Time.get_unix_time_from_datetime_dict(Time.get_datetime_dict_from_system()) # Update timestamp
-		# TODO: Implement more sophisticated conflict resolution based on source trust and biases
-		print("NPCMemory: Fact '%s' updated. New certainty: %f" % [fact.fact_id, existing_fact.certainty])
+		# For facts about location, just update the timestamp and position
+		if fact.fact_type == "ENTITY_LOCATION":
+			existing_fact.timestamp = Time.get_unix_time_from_datetime_dict(Time.get_datetime_dict_from_system())
+			existing_fact.data["position"] = fact.data["position"]
+			existing_fact.certainty = 1.0 # Re-observing makes it 100% certain again
 	else:
 		_known_facts[fact.fact_id] = fact
 		# Initial certainty can be influenced by biases right at perception/addition
 		fact.certainty = _calculate_incoming_fact_certainty(fact)
-		print("NPCMemory: Fact '%s' added. Certainty: %f" % [fact.fact_id, fact.certainty])
+		#print("NPCMemory: Fact '%s' added. Certainty: %f" % [fact.fact_id, fact.certainty])
 
 	# TODO: Trigger emotional impact based on fact
 	# TODO: Update dynamic source trust based on accuracy of past information from source
@@ -126,7 +123,7 @@ func tick(minutes_passed: int, active_tags: Dictionary):
 
 	for fact_id in facts_to_remove:
 		_known_facts.erase(fact_id)
-		print("NPCMemory: Fact '%s' forgotten due to decay." % fact_id)
+		#print("NPCMemory: Fact '%s' forgotten due to decay." % fact_id)
 
 	# TODO: Decay relationships (MemoryRelation.gd)
 
@@ -139,33 +136,47 @@ func tick(minutes_passed: int, active_tags: Dictionary):
 func get_fact(fact_id: String) -> KnownFact:
 	return _known_facts.get(fact_id)
 
-## Checks if the NPC knows a specific location.
+## Finds the best known fact that matches a certain criteria, such as the nearest entity of a specific type.
 ##
 ## Parameters:
-## - location_id: The ID of the location.
+## - criteria: A dictionary defining what to search for.
+##   - "entity_type": (Optional) The type of entity to find (e.g., "ITEM").
+##   - "entity_id_name": (Optional) The specific definition ID of the entity (e.g., "item_apple").
+##   - "sort_by": (Optional) "NEAREST" to sort by distance.
 ## Returns:
-## - bool: True if the NPC knows the location, false otherwise.
-func knows_location(location_id: String) -> bool:
-	# Implement logic to check if a fact about this location exists and has sufficient certainty.
-	# Example: check for fact_type "LEARNED_LOCATION" and location_id in its data.
-	# This requires a standardized fact_id generation or searching through facts.
-	return false # Placeholder
+## - KnownFact: The fact that best matches the criteria, or null if none found.
+func get_best_known_entity_fact(criteria: Dictionary) -> KnownFact:
+	var candidates: Array[KnownFact] = []
+	for fact_id in _known_facts:
+		var fact: KnownFact = _known_facts[fact_id]
+		if fact.fact_type != "ENTITY_LOCATION":
+			continue
 
-## Retrieves a list of known entities of a specific type.
-##
-## Parameters:
-## - entity_type: The type of entity (e.g., "ITEM", "BUILDING", "NPC").
-## Returns:
-## - Array[int]: An array of instance IDs of known entities.
-func get_known_entities_by_type(entity_type: String) -> Array[int]:
-	# This would require facts to store entity instance IDs and types,
-	# and be queryable by these properties.
-	return [] # Placeholder
+		var data = fact.data
+		
+		# Filter by entity type if specified
+		if criteria.has("entity_type") and data.get("entity_type") != criteria["entity_type"]:
+			continue
+			
+		# Filter by entity definition ID if specified
+		if criteria.has("entity_id_name") and data.get("entity_id_name") != criteria["entity_id_name"]:
+			continue
 
-## Retrieves the best known entity of a specific type (e.g., closest, highest quality).
-## This would require more sophisticated fact data and sorting logic.
-func get_best_known_entity_of_type(entity_type: String) -> int:
-	return 0 # Placeholder instance ID
+		candidates.append(fact)
+
+	if candidates.is_empty():
+		return null
+		
+	# Sort candidates if requested
+	if criteria.has("sort_by") and criteria["sort_by"] == "NEAREST":
+		var npc_position = _parent_npc_ai.get_parent().global_position
+		candidates.sort_custom(func(a, b):
+			var dist_a = npc_position.distance_squared_to(a.data["position"])
+			var dist_b = npc_position.distance_squared_to(b.data["position"])
+			return dist_a < dist_b
+		)
+	
+	return candidates[0]
 
 ## Retrieves the relationship data with another NPC.
 func get_relationship_with(target_npc_id: int):

@@ -443,7 +443,7 @@ func _fail_current_goal(reason: String):
 ## Updates the NPC's blackboard with its current internal state.
 ## This snapshot is used for goal selection and planning by the AIWorkerThread.
 func _update_blackboard():
-	# Always ensure these are deep copies for thread safety
+	# Update core internal states
 	_npc_blackboard.set_data("current_hp", _current_hp)
 	_npc_blackboard.set_data("granular_needs_state", _granular_needs_state.duplicate(true))
 	_npc_blackboard.set_data("active_tags", _active_tags.duplicate(true))
@@ -452,20 +452,29 @@ func _update_blackboard():
 	_npc_blackboard.set_data("money", _money)
 	_npc_blackboard.set_data("is_dead", _is_dead)
 	_npc_blackboard.set_data("current_job_id", _current_job_id)
-	_npc_blackboard.set_data("npc_instance_id", get_instance_id()) # Add instance ID to blackboard for debug
+	_npc_blackboard.set_data("npc_instance_id", get_instance_id())
 
-	# Derived states for GOAP planning (e.g., is hunger satisfied?)
-	var hunger_satisfied = false
+	# Update derived states for GOAP planning
 	var hunger_def = _entity_manager.get_granular_need("HUNGER")
 	if hunger_def and _granular_needs_state.has("HUNGER"):
-		hunger_satisfied = _granular_needs_state["HUNGER"] <= hunger_def.satisfaction_threshold
-	_npc_blackboard.set_data("hunger_satisfied", hunger_satisfied)
-	#print("DEBUG: NPCAI %d - Blackboard updated. hunger_satisfied: %s (from hunger %f <= threshold %f)" % [get_instance_id(), hunger_satisfied, _granular_needs_state.get("HUNGER", -1.0), hunger_def.satisfaction_threshold])
+		var is_satisfied = _granular_needs_state["HUNGER"] <= hunger_def.satisfaction_threshold
+		_npc_blackboard.set_data("hunger_satisfied", is_satisfied)
 	
-	# Example: check if NPC has a specific item
 	_npc_blackboard.set_data("has_item_apple", _possessed_items.has("item_apple") and _possessed_items["item_apple"] > 0)
 	
-	# Add any other derived states needed for planning preconditions/effects
+	# --- NEW LOGIC: Query memory for target and update blackboard ---
+	# Find the nearest known food item (specifically an apple for this test case)
+	var search_criteria = {"entity_id_name": "item_apple", "sort_by": "NEAREST"}
+	var nearest_food_fact: KnownFact = _npc_memory.get_best_known_entity_fact(search_criteria)
+	
+	if nearest_food_fact:
+		var food_instance_id = nearest_food_fact.data["instance_id"]
+		_npc_blackboard.set_data("nearest_food_item", food_instance_id)
+		# The action plan for "PickupItem" can now find this key.
+	else:
+		# If no food is known, remove the key to prevent actions from targeting a non-existent entity.
+		if _npc_blackboard.get_data("nearest_food_item") != null:
+			_npc_blackboard.set_data("nearest_food_item", null)
 
 ## Returns a snapshot of the NPC's blackboard for external systems (e.g., AIManager).
 func get_blackboard_snapshot() -> NPCBlackboard:
