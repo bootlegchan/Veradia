@@ -176,7 +176,6 @@ func _process_plan_result(npc_instance_id: int, goal_id: String, plan: Array, su
 			npc_plan_generated.emit(npc_instance_id, goal_id, plan)
 			print("AIManager: Plan found for '%s':" % npc_ai.name)
 			for action_id_str in plan:
-				# Use the standardized 'id' property.
 				var action_def = _entity_manager.get_goap_action(action_id_str)
 				if action_def:
 					print("  - %s" % action_def.id)

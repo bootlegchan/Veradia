@@ -2,3 +2,5 @@ res://scenes/items/house.tscn
 res://systems/ai_manager.gd
 res://systems/ai_worker_thread.gd
 res://features/npc_module/npc_ai.gd
+res://scenes/main.tscn
+res://scenes/items/fridge.tscn
